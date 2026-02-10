@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -12,7 +13,7 @@ class ApiAuth {
     final url = Uri.parse("$baseUrl/wfs.jsp?r=autor&q=$username,$password");
 
     try {
-      final response = await http.get(url);
+      final response = await http.get(url).timeout(const Duration(seconds: 15));
       //print("HASIL LOGIN: ${response.body}");
       if (response.statusCode == 200) {
         try {
@@ -43,6 +44,16 @@ class ApiAuth {
           "message": "Server error: ${response.statusCode}",
         };
       }
+    } on http.ClientException {
+      return {
+        "success": false,
+        "message": "Koneksi ke server gagal",
+      };
+    } on TimeoutException {
+      return {
+        "success": false,
+        "message": "Login timeout, periksa jaringan lalu coba lagi",
+      };
     } catch (e) {
       return {
         "success": false,

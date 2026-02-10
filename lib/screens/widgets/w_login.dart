@@ -1,4 +1,6 @@
 // lib/screens/widgets/w_login.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../mvc_services/api_auth.dart';
 import '../../plantdb/db_helper.dart';
@@ -137,7 +139,8 @@ List<Widget> listChildren(
       textController: passwordController,
       labelText: 'Kata Sandi',
       icon: Icons.lock_outline,
-      obscureText: true,
+      obscureText: false,
+      isPasswordField: true,
     ),
     const SizedBox(height: 30),
     tombolLogin(
@@ -173,50 +176,77 @@ ElevatedButton tombolLogin(
         );
         return;
       }
-      await DBHelper().cleanDatabaseAfterLogin();
-      //await PetugasDao().deleteAllWorkers();
 
-      // 🌐 1. Panggil API untuk login
-      final result = await ApiAuth.login(username, password);
-      //print('ha;o:$result');
-      // 🔹 2. Pastikan widget masih hidup
-      if (!context.mounted) return;
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
 
-      if (result['success']) {
-        final data = result['data'];
+      try {
+        await DBHelper()
+            .cleanDatabaseAfterLogin()
+            .timeout(const Duration(seconds: 12));
 
-        // 2. Buat objek Petugas
-        final petugas = Petugas(
-          akun: username,
-          nama: data['nama'],
-          kontak: data['id_pihak'],
-          peran: data['tipe'],
-          lastSync: '',
-          blok: data['blok'],
-          divisi: data['divisi'],
-        );
-
-        // 3. Simpan ke SQLite via DAO
-        final hasil = await PetugasDao().insertPetugas(petugas);
-
+        // 🌐 1. Panggil API untuk login
+        final result = await ApiAuth.login(username, password);
         if (!context.mounted) return;
-        // 4. Navigate ke halaman Sync
-        if (hasil > 0) {
-          // insert berhasil
-          Navigator.pushReplacementNamed(
-            context,
-            routeName,
-            arguments: {'username': username, 'blok': petugas.blok},
+
+        if (result['success']) {
+          final data = result['data'];
+
+          // 2. Buat objek Petugas
+          final petugas = Petugas(
+            akun: username,
+            nama: data['nama'],
+            kontak: data['id_pihak'],
+            peran: data['tipe'],
+            lastSync: '',
+            blok: data['blok'],
+            divisi: data['divisi'],
           );
-        } else {
-          // insert gagal
-          //print("Insert gagal");
+
+          // 3. Simpan ke SQLite via DAO
+          final hasil = await PetugasDao().insertPetugas(petugas);
+          if (!context.mounted) return;
+
+          // 4. Navigate ke halaman Sync
+          if (hasil > 0) {
+            Navigator.pushReplacementNamed(
+              context,
+              routeName,
+              arguments: {'username': username, 'blok': petugas.blok},
+            );
+            return;
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Gagal menyimpan data user lokal")),
+          );
+          return;
         }
-      } else {
-        // Menampilkan pesan error
+
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(result['message'])));
+      } on TimeoutException {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Proses login terlalu lama, periksa jaringan lalu coba lagi'),
+          ),
+        );
+      } catch (_) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Terjadi kendala saat login, silakan coba ulang'),
+          ),
+        );
+      } finally {
+        if (context.mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
       }
     },
     style: ElevatedButton.styleFrom(
@@ -298,12 +328,35 @@ Widget _buildTextField({
   required String labelText,
   required IconData icon,
   bool obscureText = false,
+  bool isPasswordField = false,
 }) {
-  return resTextFieldConfig(
-    textController,
-    icon,
-    obscureText,
-    kolomTeks(labelText, icon),
-    resTextStyle(null, null, false, Colors.black87),
+  if (!isPasswordField) {
+    return resTextFieldConfig(
+      textController,
+      icon,
+      obscureText,
+      kolomTeks(labelText, icon),
+      resTextStyle(null, null, false, Colors.black87),
+    );
+  }
+
+  bool hidden = true;
+  return StatefulBuilder(
+    builder: (context, setState) {
+      return TextField(
+        controller: textController,
+        obscureText: hidden,
+        style: resTextStyle(null, null, false, Colors.black87),
+        decoration: kolomTeks(labelText, icon).copyWith(
+          suffixIcon: IconButton(
+            onPressed: () => setState(() => hidden = !hidden),
+            icon: Icon(
+              hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+              color: const Color(0xFF388E3C),
+            ),
+          ),
+        ),
+      );
+    },
   );
 }

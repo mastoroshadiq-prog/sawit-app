@@ -5,6 +5,7 @@ import 'package:kebun_sawit/mvc_dao/dao_kesehatan.dart';
 import 'package:kebun_sawit/mvc_dao/dao_observasi_tambahan.dart';
 import 'package:kebun_sawit/mvc_dao/dao_reposisi.dart';
 import 'package:kebun_sawit/mvc_dao/dao_task_execution.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:kebun_sawit/screens/scr_reposisi_drilldown.dart';
 import '../mvc_libs/pdf_preview.dart';
 import '../screens/widgets/w_general.dart';
@@ -30,6 +31,7 @@ class _MenuScreen extends State<MenuScreen> {
   late final InformasiSistem infoSistem;
   late final RekapPekerjaan rekapPekerjaan;
   late Future<_FieldSummary> _summaryFuture;
+  String _appVersionLabel = '-';
 
   static const List<String> _hari = [
     'Senin',
@@ -68,6 +70,7 @@ class _MenuScreen extends State<MenuScreen> {
   void initState() {
     super.initState();
     _summaryFuture = _loadFieldSummary();
+    _loadAppVersion();
     // Future dibuat sekali di initState
     // assignmentFuture = AssignmentDao().getAllAssignment();  // ambil data SQLite
     // petugas = PetugasDao().getPetugas();
@@ -120,6 +123,21 @@ class _MenuScreen extends State<MenuScreen> {
       perangkat: 'Android Device',
       statusSinkronisasi: 'Belum'
     );
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() {
+        _appVersionLabel = '${info.version}+${info.buildNumber}';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _appVersionLabel = '-';
+      });
+    }
   }
 
   Future<_FieldSummary> _loadFieldSummary() async {
@@ -215,6 +233,15 @@ class _MenuScreen extends State<MenuScreen> {
                     style: TextStyle(
                       fontSize: 13,
                       color: const Color(0xFF4D7A6E),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Versi aplikasi: $_appVersionLabel',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF6A8D84),
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],

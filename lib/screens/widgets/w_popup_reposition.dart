@@ -13,6 +13,9 @@ import '../../mvc_dao/dao_audit_log.dart';
 import '../scr_models/reposition_result.dart';
 import 'w_general.dart';
 import '../../mvc_models/pohon.dart';
+import '../../mvc_services/geo_audit_service.dart';
+import '../../mvc_services/geo_photo_service.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<ReposisiResult?> showPopup(
@@ -160,6 +163,7 @@ SingleChildScrollView _buildPopupContent(
   _TreeStatusOption? selectedOption;
   final Set<String> selectedObservasi = <String>{};
   final TextEditingController catatanController = TextEditingController();
+  XFile? photoFile;
 
   return SingleChildScrollView(
     child: StatefulBuilder(
@@ -290,6 +294,43 @@ SingleChildScrollView _buildPopupContent(
                 isDense: true,
               ),
             ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final picker = ImagePicker();
+                      final shot = await picker.pickImage(
+                        source: ImageSource.camera,
+                        imageQuality: 80,
+                        maxWidth: 1920,
+                      );
+                      if (!context.mounted) return;
+                      if (shot != null) {
+                        setState(() {
+                          photoFile = shot;
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.camera_alt_outlined, size: 18),
+                    label: const Text('Ambil Foto Temuan'),
+                  ),
+                  if (photoFile != null)
+                    Text(
+                      'Foto siap: ${photoFile!.name}',
+                      style: TextStyle(
+                        color: Colors.green.shade800,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ],
           const SizedBox(height: 16),
           if (selectedOption != null)
@@ -373,6 +414,33 @@ SingleChildScrollView _buildPopupContent(
                     observasiNote: catatanController.text.trim(),
                     simpanObservasi: selectedMode == _PopupMode.temuan,
                   );
+
+                  unawaited(
+                    GeoAuditService().captureAndQueueReposisiEvent(
+                      userId: petugas,
+                      blok: pohon.blok,
+                      idTanaman: pohon.objectId,
+                      idReposisi: result.idReposisi,
+                      actionLabel: selectedOption!.label,
+                      rowNumber: pohon.nbaris,
+                      treeNumber: pohon.npohon,
+                    ),
+                  );
+
+                  if (selectedMode == _PopupMode.temuan && photoFile != null) {
+                    unawaited(
+                      GeoPhotoService().captureAndQueuePhoto(
+                        userId: petugas,
+                        blok: pohon.blok,
+                        idTanaman: pohon.objectId,
+                        idReposisi: result.idReposisi,
+                        actionLabel: selectedOption!.label,
+                        rowNumber: pohon.nbaris,
+                        treeNumber: pohon.npohon,
+                        localPath: photoFile!.path,
+                      ),
+                    );
+                  }
 
                   if (context.mounted) {
                     Navigator.pop(context, result);
@@ -593,8 +661,9 @@ Future<ReposisiResult> _syncPlantReposition(
 
   bool isHasil;
   final uuid = Uuid().v4();
+  final generatedReposisiId = '${uuid.toUpperCase()}-$blok';
   final reposisi = Reposisi(
-    idReposisi: '${uuid.toUpperCase()}-$blok', // ID akan di-generate otomatis
+    idReposisi: generatedReposisiId, // ID akan di-generate otomatis
     idTanaman: idTanaman, // Isi dengan ID pohon yang sesuai
     pohonAwal: pohonAwal, // Isi dengan pohon awal
     barisAwal: barisTujuan, // Isi dengan baris awal
@@ -682,6 +751,7 @@ Future<ReposisiResult> _syncPlantReposition(
     isHasil = false;
   }
   return ReposisiResult(
+    idReposisi: generatedReposisiId,
     idTanaman: idTanaman,
     message: '',
     flag: nFlag,

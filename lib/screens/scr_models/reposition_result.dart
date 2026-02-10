@@ -1,4 +1,5 @@
 class ReposisiResult {
+  final String idReposisi;
   final String idTanaman;
   final bool success;
   final String message;
@@ -8,6 +9,7 @@ class ReposisiResult {
   final int pohonIndex;
 
   ReposisiResult({
+    required this.idReposisi,
     required this.idTanaman,
     required this.success,
     required this.message,
