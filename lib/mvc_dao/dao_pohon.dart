@@ -89,6 +89,25 @@ class PohonDao {
     );
   }
 
+  Future<void> updateStatusPohonByObjectId(
+    String objectId,
+    String nFlag,
+    String nPohonAwal,
+    String nBarisAwal,
+  ) async {
+    final db = await dbHelper.database;
+    await db.update(
+      'pohon',
+      {
+        'nflag': nFlag,
+        'npohon': nPohonAwal,
+        'nbaris': nBarisAwal,
+      },
+      where: 'objectId = ?',
+      whereArgs: [objectId],
+    );
+  }
+
   Future<int> deletePohon(String objectId) async {
     final db = await dbHelper.database;
     return await db.delete(

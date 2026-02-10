@@ -49,6 +49,7 @@ class _SyncPageState extends State<SyncPage> {
   List<List<Map<String, dynamic>>> batchTugas = [];
   List<List<Map<String, dynamic>>> batchKesehatan = [];
   List<List<Map<String, dynamic>>> batchReposisi = [];
+  List<List<Map<String, dynamic>>> batchObservasi = [];
   List<List<Map<String, dynamic>>> batchSPRlog = [];
   List<List<Map<String, dynamic>>> batchAuditlog = [];
 
@@ -57,6 +58,7 @@ class _SyncPageState extends State<SyncPage> {
     BatchKind.tugas: BatchState.idle,
     BatchKind.kesehatan: BatchState.idle,
     BatchKind.reposisi: BatchState.idle,
+    BatchKind.observasi: BatchState.idle,
     BatchKind.auditlog: BatchState.idle,
     BatchKind.sprlog: BatchState.idle,
   };
@@ -66,6 +68,7 @@ class _SyncPageState extends State<SyncPage> {
     BatchKind.tugas: "",
     BatchKind.kesehatan: "",
     BatchKind.reposisi: "",
+    BatchKind.observasi: "",
     BatchKind.auditlog: "",
     BatchKind.sprlog: "",
   };
@@ -100,7 +103,7 @@ class _SyncPageState extends State<SyncPage> {
     setState(() {
       batchTugas = tugas;
       states[BatchKind.tugas] = BatchState.ready;
-      fetchProgress = 1 / 5;
+      fetchProgress = 1 / 6;
     });
 
     // 2/4 - kesehatan
@@ -112,7 +115,7 @@ class _SyncPageState extends State<SyncPage> {
     setState(() {
       batchKesehatan = kesehatan;
       states[BatchKind.kesehatan] = BatchState.ready;
-      fetchProgress = 2 / 5;
+      fetchProgress = 2 / 6;
     });
 
     // 3/4 - reposisi
@@ -126,10 +129,22 @@ class _SyncPageState extends State<SyncPage> {
     setState(() {
       batchReposisi = reposisi;
       states[BatchKind.reposisi] = BatchState.ready;
-      fetchProgress = 3 / 5;
+      fetchProgress = 3 / 6;
     });
 
-    // 4/5 - Stand Per Row
+    // 4/6 - observasi tambahan
+    setState(() {
+      states[BatchKind.observasi] = BatchState.fetching;
+      fetchLabel = "Mengumpulkan Data — Observasi Tambahan";
+    });
+    final observasi = await _syncService.fetchObservasiBatchX();
+    setState(() {
+      batchObservasi = observasi;
+      states[BatchKind.observasi] = BatchState.ready;
+      fetchProgress = 4 / 6;
+    });
+
+    // 5/6 - Stand Per Row
     setState(() {
       states[BatchKind.sprlog] = BatchState.fetching;
       fetchLabel = "Mengumpulkan Data â€” Stand Per Row Log";
@@ -139,10 +154,10 @@ class _SyncPageState extends State<SyncPage> {
     setState(() {
       batchSPRlog = sprlog;
       states[BatchKind.sprlog] = BatchState.ready;
-      fetchProgress = 4 / 5;
+      fetchProgress = 5 / 6;
     });
 
-    // 5/5 - auditlog
+    // 6/6 - auditlog
     setState(() {
       states[BatchKind.auditlog] = BatchState.fetching;
       fetchLabel = "Mengumpulkan Data â€” Status Auditlog";
@@ -187,6 +202,7 @@ class _SyncPageState extends State<SyncPage> {
       _BatchTask(BatchKind.tugas, "Status Tugas", batchTugas),
       _BatchTask(BatchKind.kesehatan, "Status Kesehatan", batchKesehatan),
       _BatchTask(BatchKind.reposisi, "Status Reposisi", batchReposisi),
+      _BatchTask(BatchKind.observasi, "Observasi Tambahan", batchObservasi),
       _BatchTask(BatchKind.sprlog, "Stand Per Row", batchSPRlog),
       _BatchTask(BatchKind.auditlog, "Audit Log", batchAuditlog),
     ];
@@ -502,6 +518,7 @@ class _SyncPageState extends State<SyncPage> {
       batchTugas.clear();
       batchKesehatan.clear();
       batchReposisi.clear();
+      batchObservasi.clear();
       batchSPRlog.clear();
       batchAuditlog.clear();
     });
@@ -560,6 +577,7 @@ class _SyncPageState extends State<SyncPage> {
               tugasCount: batchTugas.length,
               kesehatanCount: batchKesehatan.length,
               reposisiCount: batchReposisi.length,
+              observasiCount: batchObservasi.length,
               auditlogCount: batchAuditlog.length,
               sprlogCount: batchSPRlog.length,
               secondary: secondary,
@@ -600,6 +618,7 @@ class _SyncPageState extends State<SyncPage> {
         (batchTugas.isNotEmpty ||
             batchKesehatan.isNotEmpty ||
             batchReposisi.isNotEmpty ||
+            batchObservasi.isNotEmpty ||
             batchSPRlog.isNotEmpty ||
             batchAuditlog.isNotEmpty) &&
         !isSending;
@@ -657,6 +676,13 @@ class _SyncPageState extends State<SyncPage> {
               kind: BatchKind.reposisi,
               message: resultMessages[BatchKind.reposisi] ?? "",
               state: states[BatchKind.reposisi] ?? BatchState.idle,
+              successColor: successColor,
+            ),
+            const SizedBox(height: 8),
+            BatchResultPanel(
+              kind: BatchKind.observasi,
+              message: resultMessages[BatchKind.observasi] ?? "",
+              state: states[BatchKind.observasi] ?? BatchState.idle,
               successColor: successColor,
             ),
             const SizedBox(height: 8),

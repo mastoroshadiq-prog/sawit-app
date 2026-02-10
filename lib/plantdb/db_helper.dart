@@ -25,7 +25,7 @@ class DBHelper {
       path,
       version: 1,
       onCreate: _onCreate,
-      //onOpen: _onOpen,
+      onOpen: _onOpen,
     );
   }
 
@@ -37,7 +37,37 @@ class DBHelper {
       path,
       version: 1,
       onCreate: _onCreate,
-      //onOpen: _onOpen,
+      onOpen: _onOpen,
+    );
+  }
+
+  Future<void> _onOpen(Database db) async {
+    // Guard migrasi ringan untuk user existing (DB lama versi 1)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS observasi_tambahan (
+        idObservasi TEXT PRIMARY KEY,
+        idTanaman TEXT,
+        blok TEXT,
+        baris TEXT,
+        pohon TEXT,
+        kategori TEXT,
+        detail TEXT,
+        catatan TEXT,
+        petugas TEXT,
+        createdAt TEXT,
+        flag INTEGER
+      )
+    ''');
+
+    final repoColumns = await db.rawQuery('PRAGMA table_info(reposisi)');
+    final hasCreatedAt = repoColumns.any((c) => c['name'] == 'createdAt');
+    if (!hasCreatedAt) {
+      await db.execute('ALTER TABLE reposisi ADD COLUMN createdAt TEXT');
+    }
+
+    // Backfill timestamp untuk data lama agar tetap bisa ditampilkan di drilldown
+    await db.execute(
+      "UPDATE reposisi SET createdAt = datetime('now') WHERE createdAt IS NULL OR createdAt = ''",
     );
   }
 
@@ -103,7 +133,24 @@ class DBHelper {
         tipeRiwayat TEXT,
         petugas TEXT,
         flag INTEGER,
-        blok TEXT
+        blok TEXT,
+        createdAt TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS observasi_tambahan (
+        idObservasi TEXT PRIMARY KEY,
+        idTanaman TEXT,
+        blok TEXT,
+        baris TEXT,
+        pohon TEXT,
+        kategori TEXT,
+        detail TEXT,
+        catatan TEXT,
+        petugas TEXT,
+        createdAt TEXT,
+        flag INTEGER
       )
     ''');
 
@@ -218,6 +265,7 @@ class DBHelper {
       'eksekusi',
       'kesehatan',
       'reposisi',
+      'observasi_tambahan',
       'auditlog',
     ];
 

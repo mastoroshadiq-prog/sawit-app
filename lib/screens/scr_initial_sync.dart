@@ -300,31 +300,8 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
       );
     }
 
-    if (!mounted) return false;
-    final proceed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Jaringan Kurang Stabil'),
-        content: Text(
-          'Kualitas jaringan di bawah rekomendasi.\n'
-          'Download: ${result.downloadMbps.toStringAsFixed(2)} Mbps\n'
-          'Latensi: ${result.latencyMs} ms\n\n'
-          'Lanjutkan sinkronisasi dengan risiko proses lebih lambat/gagal?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Lanjutkan'),
-          ),
-        ],
-      ),
-    );
-
-    return proceed == true;
+    // Sesuai kebijakan baru: hanya warning, proses sync tetap lanjut tanpa konfirmasi.
+    return true;
   }
 
   double _computeProgress() {
@@ -624,9 +601,15 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.10),
+                    color: (_networkQuality?.ok ?? false)
+                        ? const Color(0xFF1E5F4D).withValues(alpha: 0.35)
+                        : const Color(0xFF8B2C2C).withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.white24),
+                    border: Border.all(
+                      color: (_networkQuality?.ok ?? false)
+                          ? const Color(0xFF8FCE00).withValues(alpha: 0.6)
+                          : Colors.redAccent.withValues(alpha: 0.7),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -653,7 +636,11 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
                           _isCheckingNetwork
                               ? 'Mengecek kualitas jaringan...'
                               : (_networkQuality?.message ?? 'Kualitas jaringan belum dicek'),
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                       if (!_isCheckingNetwork)

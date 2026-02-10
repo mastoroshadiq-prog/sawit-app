@@ -10,6 +10,7 @@ class Reposisi {
   final String petugas;
   final int flag;
   final String blok;
+  final String createdAt;
 
   Reposisi({
     required this.idReposisi,
@@ -23,6 +24,7 @@ class Reposisi {
     required this.petugas,
     required this.flag,
     required this.blok,
+    this.createdAt = '',
   });
 
   Map<String, dynamic> toMap() {
@@ -38,6 +40,7 @@ class Reposisi {
       'petugas': petugas,
       'flag': flag,
       'blok': blok,
+      'createdAt': createdAt,
     };
   }
 
@@ -54,6 +57,7 @@ class Reposisi {
       petugas: map['petugas'] ?? '',
       flag: map['flag'] ?? 0,
       blok: map['blok'] ?? '',
+      createdAt: map['createdAt'] ?? '',
     );
   }
 }

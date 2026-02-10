@@ -8,10 +8,12 @@ import '../../mvc_dao/dao_audit_log.dart';
 import '../../mvc_dao/dao_task_execution.dart';
 import '../../mvc_dao/dao_kesehatan.dart';
 import '../../mvc_dao/dao_reposisi.dart';
+import '../../mvc_dao/dao_observasi_tambahan.dart';
 import '../../mvc_models/audit_log.dart';
 import '../../mvc_models/execution.dart';
 import '../../mvc_models/kesehatan.dart';
 import '../../mvc_models/reposisi.dart';
+import '../../mvc_models/observasi_tambahan.dart';
 import '../../mvc_libs/connection_utils.dart';
 import 'sync_models.dart';
 
@@ -268,6 +270,35 @@ class SyncService {
     return allBatchData;
   }
 
+  Future<List<List<Map<String, dynamic>>>> fetchObservasiBatchX() async {
+    await Future.delayed(const Duration(milliseconds: 700));
+
+    List<ObservasiTambahan> observasi =
+        await ObservasiTambahanDao().getAllZeroObservasi();
+    List<List<Map<String, dynamic>>> allBatchData = [];
+    const int batchSize = 10;
+
+    for (int i = 0; i < observasi.length; i += batchSize) {
+      final end =
+          (i + batchSize < observasi.length) ? i + batchSize : observasi.length;
+
+      final batch = observasi.sublist(i, end).map((o) {
+        final createdAtTrimmed =
+            o.createdAt.length >= 23 ? o.createdAt.substring(0, 23) : o.createdAt;
+        return {
+          "TARGET": "IOB",
+          "PARAMS":
+              "${o.idObservasi},${o.idTanaman},${o.blok},${o.baris},${o.pohon},"
+                  "${o.kategori},${o.detail},${o.catatan},${o.petugas},$createdAtTrimmed",
+        };
+      }).toList();
+
+      allBatchData.add(batch);
+    }
+
+    return allBatchData;
+  }
+
   /// Fetch data audit log dari SQLite
   Future<List<Map<String, dynamic>>> fetchAuditLogFromSqlite() async {
     await Future.delayed(const Duration(milliseconds: 700));
@@ -435,6 +466,14 @@ class SyncService {
         for (var map in items) {
           final id = map['PARAMS'].toString().split(',')[0];
           await ReposisiDao().updateFlag(id);
+        }
+        break;
+
+      case BatchKind.observasi:
+        await AuditLogDao().createLog("SYNC_DATA", status);
+        for (var map in items) {
+          final id = map['PARAMS'].toString().split(',')[0];
+          await ObservasiTambahanDao().updateFlag(id);
         }
         break;
 

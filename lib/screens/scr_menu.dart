@@ -1,6 +1,11 @@
 // screens/assignment_list_screen.dart
 import 'package:flutter/material.dart';
 import 'package:kebun_sawit/mvc_models/laporan.dart';
+import 'package:kebun_sawit/mvc_dao/dao_kesehatan.dart';
+import 'package:kebun_sawit/mvc_dao/dao_observasi_tambahan.dart';
+import 'package:kebun_sawit/mvc_dao/dao_reposisi.dart';
+import 'package:kebun_sawit/mvc_dao/dao_task_execution.dart';
+import 'package:kebun_sawit/screens/scr_reposisi_drilldown.dart';
 import '../mvc_libs/pdf_preview.dart';
 import '../screens/widgets/w_general.dart';
 
@@ -24,10 +29,45 @@ class _MenuScreen extends State<MenuScreen> {
   late final ValidasiPengesahan validasi;
   late final InformasiSistem infoSistem;
   late final RekapPekerjaan rekapPekerjaan;
+  late Future<_FieldSummary> _summaryFuture;
+
+  static const List<String> _hari = [
+    'Senin',
+    'Selasa',
+    'Rabu',
+    'Kamis',
+    'Jumat',
+    'Sabtu',
+    'Minggu',
+  ];
+  static const List<String> _bulan = [
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
+  ];
+
+  String _tanggalHariIniLabel() {
+    final now = DateTime.now();
+    final hari = _hari[now.weekday - 1];
+    final tanggal = now.day.toString().padLeft(2, '0');
+    final bulan = _bulan[now.month - 1];
+    final tahun = now.year;
+    return '$hari, $tanggal $bulan $tahun';
+  }
 
   @override
   void initState() {
     super.initState();
+    _summaryFuture = _loadFieldSummary();
     // Future dibuat sekali di initState
     // assignmentFuture = AssignmentDao().getAllAssignment();  // ambil data SQLite
     // petugas = PetugasDao().getPetugas();
@@ -82,6 +122,28 @@ class _MenuScreen extends State<MenuScreen> {
     );
   }
 
+  Future<_FieldSummary> _loadFieldSummary() async {
+    final tugasPending = (await TaskExecutionDao().getAllTaskExecByFlag()).length;
+    final kesehatanPending = (await KesehatanDao().getAllZeroKesehatan()).length;
+    final reposisiPending = (await ReposisiDao().getAllZeroReposisi()).length;
+    final observasiPending =
+        (await ObservasiTambahanDao().getAllZeroObservasi()).length;
+
+    return _FieldSummary(
+      tugasPending: tugasPending,
+      kesehatanPending: kesehatanPending,
+      reposisiPending: reposisiPending,
+      observasiPending: observasiPending,
+    );
+  }
+
+  Future<void> _refreshDashboard() async {
+    setState(() {
+      _summaryFuture = _loadFieldSummary();
+    });
+    await _summaryFuture;
+  }
+
   @override
   Widget build(BuildContext context) {
     final menuItems = _menuItems(context);
@@ -105,11 +167,14 @@ class _MenuScreen extends State<MenuScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: RefreshIndicator(
+        onRefresh: _refreshDashboard,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -125,13 +190,24 @@ class _MenuScreen extends State<MenuScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Akses Cepat',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF225A4D),
-                    ),
+                  Row(
+                    children: [
+                      Image.asset(
+                        'assets/icons/palm.png',
+                        width: 22,
+                        height: 22,
+                        fit: BoxFit.contain,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Akses Cepat',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF225A4D),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -145,6 +221,116 @@ class _MenuScreen extends State<MenuScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            FutureBuilder<_FieldSummary>(
+              future: _summaryFuture,
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFE8EDF2)),
+                    ),
+                    child: const Row(
+                      children: [
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 10),
+                        Text('Menyiapkan status lapangan...'),
+                      ],
+                    ),
+                  );
+                }
+
+                final s = snapshot.data!;
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE8EDF2)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Status Hari Ini',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: Color(0xFF225A4D),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _tanggalHariIniLabel(),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF4D7A6E),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _statusChip(
+                              label: 'Task Pending',
+                              value: s.tugasPending,
+                              color: const Color(0xFF4E7FA8),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _statusChip(
+                              label: 'Kesehatan',
+                              value: s.kesehatanPending,
+                              color: const Color(0xFF3C8D7A),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _statusChip(
+                              label: 'Reposisi',
+                              value: s.reposisiPending,
+                              color: const Color(0xFF8E6A8F),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const ReposisiDrilldownScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _statusChip(
+                              label: 'Observasi',
+                              value: s.observasiPending,
+                              color: const Color(0xFFB06E3D),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(
@@ -185,7 +371,8 @@ class _MenuScreen extends State<MenuScreen> {
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -237,13 +424,13 @@ class _MenuScreen extends State<MenuScreen> {
         ),
       ),
       _MenuAction(
-        icon: Icons.flash_on_rounded,
-        label: 'AKSI',
+        icon: Icons.forest,
+        label: 'KOREKSI & TEMUAN',
         color: const Color(0xFF8E6A8F),
         onTap: cfgNavigator(
           context: context,
           action: 'push',
-          routeName: '/optAct',
+          routeName: '/reposisi',
         ),
       ),
     ];
@@ -316,6 +503,72 @@ class _MenuScreen extends State<MenuScreen> {
       ),
     );
   }
+
+  Widget _statusChip({
+    required String label,
+    required int value,
+    required Color color,
+    VoidCallback? onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.09),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: 0.22)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 26,
+                height: 26,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                child: Text(
+                  '$value',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (onTap != null)
+                Icon(Icons.chevron_right, size: 16, color: color.withValues(alpha: 0.9)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FieldSummary {
+  final int tugasPending;
+  final int kesehatanPending;
+  final int reposisiPending;
+  final int observasiPending;
+
+  const _FieldSummary({
+    required this.tugasPending,
+    required this.kesehatanPending,
+    required this.reposisiPending,
+    required this.observasiPending,
+  });
 }
 
 class _MenuAction {

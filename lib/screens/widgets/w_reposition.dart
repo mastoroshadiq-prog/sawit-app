@@ -363,6 +363,14 @@ Widget _buildTreeButton(
     iconPath = 'assets/icons/kenthosan.png';
   } else if (pohon.nflag == '4') {
     iconPath = 'assets/icons/ditebang.png';
+  } else if (pohon.nflag == '5') {
+    iconPath = 'assets/icons/palm-green-G1.png';
+  } else if (pohon.nflag == '6') {
+    iconPath = 'assets/icons/palm-yellow-G2.png';
+  } else if (pohon.nflag == '7') {
+    iconPath = 'assets/icons/palm-red-G3.png';
+  } else if (pohon.nflag == '8') {
+    iconPath = 'assets/icons/palm-white-G4.png';
   } else if (pohon.nflag == '9') {
     iconPath = 'assets/icons/kosong.png';
   }

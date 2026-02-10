@@ -75,6 +75,7 @@ class BatchDataCard extends StatelessWidget {
   final int tugasCount;
   final int kesehatanCount;
   final int reposisiCount;
+  final int observasiCount;
   final int auditlogCount;
   final int sprlogCount;
   final Color secondary;
@@ -86,6 +87,7 @@ class BatchDataCard extends StatelessWidget {
     required this.tugasCount,
     required this.kesehatanCount,
     required this.reposisiCount,
+    required this.observasiCount,
     required this.auditlogCount,
     required this.sprlogCount,
     required this.secondary,
@@ -138,6 +140,13 @@ class BatchDataCard extends StatelessWidget {
             kind: BatchKind.reposisi,
             count: reposisiCount,
             state: states[BatchKind.reposisi] ?? BatchState.idle,
+            textColor: textColor,
+          ),
+          const SizedBox(height: 8),
+          BatchRow(
+            kind: BatchKind.observasi,
+            count: observasiCount,
+            state: states[BatchKind.observasi] ?? BatchState.idle,
             textColor: textColor,
           ),
           const SizedBox(height: 8),
