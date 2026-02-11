@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/sync_source_config.dart';
 
 class ApiAuth {
   //static const String baseUrlX = "https://aaa.com/auth";
-  static const String baseUrl = "http://13.67.47.76/bbn";
+  static String get baseUrl => SyncSourceConfig.activeApiBaseUrl;
 
 
   /// Login user berdasarkan username & password

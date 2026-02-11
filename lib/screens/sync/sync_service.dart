@@ -15,11 +15,12 @@ import '../../mvc_models/kesehatan.dart';
 import '../../mvc_models/reposisi.dart';
 import '../../mvc_models/observasi_tambahan.dart';
 import '../../mvc_libs/connection_utils.dart';
+import '../../config/sync_source_config.dart';
 import 'sync_models.dart';
 
 /// Service untuk menangani sinkronisasi data
 class SyncService {
-  final String baseUrl = "http://13.67.47.76/kebun/wfsnew.jsp";
+  final String baseUrl = SyncSourceConfig.activeSyncPostUrl;
 
   // -----------------------------------------
   // FETCH DATA FROM SQLITE

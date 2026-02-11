@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/sync_source_config.dart';
 
 class ApiPohon {
   //static const String baseUrlX = "https://aaa.com/auth";
-  static const String baseUrl = "http://13.67.47.76/bbn";
+  static String get baseUrl => SyncSourceConfig.activeApiBaseUrl;
 
   static Future<Map<String, dynamic>> getSpkPohon(String username) async {
     // Bentuk URL
