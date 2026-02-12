@@ -7,11 +7,18 @@ class ApiAuth {
   //static const String baseUrlX = "https://aaa.com/auth";
   static String get baseUrl => SyncSourceConfig.activeApiBaseUrl;
 
+  static String _buildReadUrl(String route, String query) {
+    if (SyncSourceConfig.useSupabase) {
+      return "$baseUrl?r=$route&q=$query";
+    }
+    return "$baseUrl/wfs.jsp?r=$route&q=$query";
+  }
+
 
   /// Login user berdasarkan username & password
   static Future<Map<String, dynamic>> login(String username, String password) async {
     // Bentuk URL
-    final url = Uri.parse("$baseUrl/wfs.jsp?r=autor&q=$username,$password");
+    final url = Uri.parse(_buildReadUrl('autor', '$username,$password'));
 
     try {
       final response = await http.get(url).timeout(const Duration(seconds: 15));

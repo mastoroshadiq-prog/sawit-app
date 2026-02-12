@@ -104,6 +104,62 @@
       "finished_at": "2026-02-11T08:16:02.241740+00:00",
       "rows": 16,
       "error": null
+    },
+    "dbo.petugas_lahan->dbo.petugas_lahan": {
+      "status": "success",
+      "started_at": "2026-02-12T05:00:45.854415+00:00",
+      "finished_at": "2026-02-12T05:00:46.006105+00:00",
+      "rows": 2,
+      "error": null
+    },
+    "dbo.ref_code->dbo.ref_code": {
+      "status": "success",
+      "started_at": "2026-02-12T05:00:46.006697+00:00",
+      "finished_at": "2026-02-12T05:00:46.263789+00:00",
+      "rows": 70,
+      "error": null
+    },
+    "dbo.reposisi_pohon->dbo.reposisi_pohon": {
+      "status": "success",
+      "started_at": "2026-02-12T05:00:46.264984+00:00",
+      "finished_at": "2026-02-12T05:00:46.450935+00:00",
+      "rows": 83,
+      "error": null
+    },
+    "dbo.sop_referensi->dbo.sop_referensi": {
+      "status": "success",
+      "started_at": "2026-02-12T05:00:46.451504+00:00",
+      "finished_at": "2026-02-12T05:00:46.562702+00:00",
+      "rows": 0,
+      "error": null
+    },
+    "dbo.sop_referensi_versi->dbo.sop_referensi_versi": {
+      "status": "success",
+      "started_at": "2026-02-12T05:00:46.563322+00:00",
+      "finished_at": "2026-02-12T05:00:46.669107+00:00",
+      "rows": 0,
+      "error": null
+    },
+    "dbo.sop_tipe->dbo.sop_tipe": {
+      "status": "success",
+      "started_at": "2026-02-12T05:00:46.669761+00:00",
+      "finished_at": "2026-02-12T05:00:46.803529+00:00",
+      "rows": 8,
+      "error": null
+    },
+    "dbo.sop_tipe_versi->dbo.sop_tipe_versi": {
+      "status": "success",
+      "started_at": "2026-02-12T05:00:46.804158+00:00",
+      "finished_at": "2026-02-12T05:00:46.909410+00:00",
+      "rows": 0,
+      "error": null
+    },
+    "dbo.stand_per_row->dbo.stand_per_row": {
+      "status": "success",
+      "started_at": "2026-02-12T05:00:46.910126+00:00",
+      "finished_at": "2026-02-12T05:00:46.995157+00:00",
+      "rows": 0,
+      "error": null
     }
   },
   "views": {

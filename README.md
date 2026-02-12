@@ -1,78 +1,76 @@
-# Kebun Sawit Mobile App
+# Sawit App (Flutter Mobile)
 
-Aplikasi Flutter untuk mendukung operasional lapangan perkebunan sawit: mulai dari otentikasi petugas, sinkronisasi data awal, eksekusi tugas, pencatatan kesehatan tanaman, reposisi, hingga sinkronisasi data kembali ke server.
+Aplikasi mobile untuk operasional lapangan kebun sawit dengan pendekatan **offline-first**: data dipakai dari lokal (SQLite) lalu disinkronkan ke server saat jaringan tersedia.
 
-## Ringkasan Singkat
+## Tujuan Aplikasi
 
-Project ini berfokus pada **workflow offline-first** dengan penyimpanan lokal SQLite, lalu sinkronisasi bertahap ke backend ketika koneksi tersedia. Aplikasi dirancang untuk kebutuhan petugas lapangan dengan antarmuka yang sederhana namun informatif.
+- Mendukung aktivitas petugas lapangan secara cepat dan stabil.
+- Menjaga data tetap aman saat offline, lalu sinkron saat online.
+- Menyediakan alur kerja yang jelas dari login, initial sync, eksekusi tugas, hingga pelaporan perubahan data lapangan.
 
-## Fitur Utama
+## Fitur yang Sudah Ada
 
-- Login petugas dan pengaturan konteks kerja (akun/blok).
-- Initial sync data operasional (SPK, tanaman, SPR, dll).
-- Progress sinkronisasi bertahap per-step dengan status detail:
-  - `running`, `success`, `failed`
-  - indikator item count per step
-  - resume step gagal / pilih step awal / ulang semua
-- Eksekusi tugas lapangan.
+- Login petugas dan pengenalan konteks kerja (akun/blok).
+- Initial sync bertahap (SPK, tanaman, SPR, finalisasi) dengan indikator progres per-step.
+- Mekanisme checkpoint untuk melanjutkan proses sinkronisasi yang terhenti.
+- Eksekusi tugas lapangan dan pembaruan status pekerjaan.
 - Pencatatan kesehatan tanaman.
-- Reposisi tanaman.
-- Sinkronisasi outbound berbasis batch.
-- Dasar pelaporan PDF.
+- Reposisi tanaman dengan histori perubahan.
+- Observasi tambahan.
+- Outbound sync berbasis batch untuk data hasil kerja lapangan.
+- Audit log aktivitas sinkronisasi/perubahan.
 
-## Arsitektur & Struktur Modul
+## Arsitektur Singkat
 
-Struktur utama di folder [`lib/`](lib):
+Struktur modul utama:
 
-- [`main.dart`](lib/main.dart): entrypoint aplikasi dan konfigurasi route.
-- [`screens/`](lib/screens): layer UI/flow per halaman.
-- [`mvc_models/`](lib/mvc_models): model data/domain.
-- [`mvc_dao/`](lib/mvc_dao): akses data SQLite (DAO).
-- [`plantdb/`](lib/plantdb): inisialisasi skema database lokal.
-- [`mvc_services/`](lib/mvc_services): service API/network.
-- [`mvc_libs/`](lib/mvc_libs): utilitas umum (PDF, koneksi, dsb).
+- [`lib/main.dart`](lib/main.dart): entry point aplikasi dan routing.
+- [`lib/screens`](lib/screens): UI, flow login, sync, menu, reposisi, dan aksi lapangan.
+- [`lib/mvc_models`](lib/mvc_models): model domain.
+- [`lib/mvc_dao`](lib/mvc_dao): akses dan manipulasi data SQLite.
+- [`lib/mvc_services`](lib/mvc_services): komunikasi API/backend.
+- [`lib/plantdb`](lib/plantdb): setup database lokal.
+- [`supabase/functions/wfsnew-adapter/index.ts`](supabase/functions/wfsnew-adapter/index.ts): adapter endpoint kompatibel format legacy sinkronisasi.
 
 ## Alur Sinkronisasi
 
-### 1) Initial Sync (setelah login)
+### 1) Initial Sync
 
-Implementasi utama di [`InitialSyncPage`](lib/screens/scr_initial_sync.dart:131).
+Implementasi utama di [`InitialSyncPage`](lib/screens/scr_initial_sync.dart:153):
 
-Step yang dijalankan berurutan:
-1. Reset data lokal
+1. Reset data lokal (dengan proteksi terhadap data belum tersinkron)
 2. Ambil data SPK
-3. Ambil data riwayat kesehatan
+3. Ambil riwayat kesehatan
 4. Ambil data tanaman
-5. Ambil data Stand Per Row (SPR)
-6. Finalisasi simpan data
+5. Ambil data SPR
+6. Finalisasi data lokal
 
-Dengan checkpoint lokal, jika ada step gagal user bisa:
-- ulang dari step gagal,
-- pilih step awal tertentu,
-- atau ulang semua proses.
+### 2) Outbound Sync
 
-### 2) Outbound Sync (kirim data ke server)
+Implementasi di [`_sendAllBatchesX()`](lib/screens/scr_sync_action.dart:187):
 
-Implementasi di [`scr_sync_action.dart`](lib/screens/scr_sync_action.dart:172) menggunakan batch per jenis data (tugas, kesehatan, reposisi, SPR log, audit log) agar proses lebih stabil dan terukur.
+- Data dikirim per kategori dan per sub-batch.
+- Setiap batch sukses akan menandai flag lokal agar idempotent.
+- Jika batch gagal, proses kategori dihentikan dan pesan error ditampilkan.
 
-## Teknologi yang Digunakan
+## Stack Teknologi
 
-- Flutter + Dart
-- SQLite via `sqflite`
-- HTTP client
+- Flutter (Dart)
+- SQLite (`sqflite`)
+- HTTP API
 - Shared Preferences
-- Image Picker + Permission Handler
-- PDF/Printing
+- Supabase Edge Function (adapter backend)
 
-Lihat dependency aktif pada [`pubspec.yaml`](pubspec.yaml:30).
+Referensi dependency: [`pubspec.yaml`](pubspec.yaml).
 
 ## Menjalankan Project
 
-### Prasyarat
-- Flutter SDK (sesuai channel stable)
-- Android SDK / emulator atau device fisik
+Prasyarat:
 
-### Perintah dasar
+- Flutter SDK (stable)
+- Android SDK / emulator / perangkat fisik
+
+Perintah dasar:
 
 ```bash
 flutter pub get
@@ -80,29 +78,20 @@ flutter analyze
 flutter run
 ```
 
-Untuk target device spesifik:
+## Catatan Operasional
 
-```bash
-flutter run -d emulator-5554
-```
+- Jalankan [`flutter analyze`](analysis_options.yaml) sebelum commit.
+- Untuk deployment adapter Supabase, pastikan command dieksekusi dari root project.
+- Gunakan konfigurasi environment yang konsisten antara app Flutter dan Edge Function.
 
-## Kualitas Kode
+## Roadmap Perbaikan (Disarankan)
 
-Project ini menggunakan static analysis Flutter/Dart melalui [`analysis_options.yaml`](analysis_options.yaml). Selalu jalankan:
-
-```bash
-flutter analyze
-```
-
-sebelum commit/push agar kualitas kode tetap konsisten.
-
-## Catatan Pengembangan
-
-- Fokus utama saat ini adalah stabilitas sinkronisasi lapangan dan observabilitas proses sync.
-- Untuk perubahan besar alur sync, prioritaskan backward compatibility terhadap data lokal/checkpoint.
-- Jika ada kendala build path/gradle di Windows, lakukan stop daemon + clean build sebelum diagnosis lanjut.
+- Penyempurnaan retry initial sync agar selalu melanjutkan dari step gagal secara deterministik.
+- Penambahan observability log sinkronisasi (client + server) yang lebih terstruktur.
+- Integrasi uji otomatis untuk skenario sinkronisasi gagal/lanjut.
 
 ## Repository
 
-Remote repository:
-- [`kebun-sawit`](https://github.com/mastoroshadiq-prog/kebun-sawit.git)
+Target repository:
+
+- [`sawit-app`](https://github.com/mastoroshadiq-prog/sawit-app.git)

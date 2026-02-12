@@ -208,14 +208,20 @@ Widget tombolLogin(
                   if (result['success']) {
                     final data = result['data'];
 
+                    String safeStr(dynamic v, {String fallback = ''}) {
+                      if (v == null) return fallback;
+                      final s = v.toString().trim();
+                      return s.isEmpty ? fallback : s;
+                    }
+
                     final petugas = Petugas(
-                      akun: username,
-                      nama: data['nama'],
-                      kontak: data['id_pihak'],
-                      peran: data['tipe'],
+                      akun: safeStr(data['akun'], fallback: username),
+                      nama: safeStr(data['nama'], fallback: username),
+                      kontak: safeStr(data['id_pihak'], fallback: '-'),
+                      peran: safeStr(data['tipe'], fallback: 'MANDOR'),
                       lastSync: '',
-                      blok: data['blok'],
-                      divisi: data['divisi'],
+                      blok: safeStr(data['blok'], fallback: '-'),
+                      divisi: safeStr(data['divisi'], fallback: '-'),
                     );
 
                     await DBHelper()

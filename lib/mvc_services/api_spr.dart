@@ -6,10 +6,17 @@ class ApiSPR {
   //static const String baseUrlX = "https://aaa.com/auth";
   static String get baseUrl => SyncSourceConfig.activeApiBaseUrl;
 
+  static String _buildReadUrl(String route, String query) {
+    if (SyncSourceConfig.useSupabase) {
+      return "$baseUrl?r=$route&q=$query";
+    }
+    return "$baseUrl/wfs.jsp?r=$route&q=$query";
+  }
+
   static Future<Map<String, dynamic>> getSprBlok(String blok) async {
     // Bentuk URL
     //final url = Uri.parse("$baseUrl/wfs.jsp?r=spk.pohon&q=$username");
-    Uri url = Uri.parse("$baseUrl/wfs.jsp?r=spr.blok&q=$blok");
+    Uri url = Uri.parse(_buildReadUrl('spr.blok', blok));
     try {
       final response = await http.get(url);
       //print('pohon:$data');

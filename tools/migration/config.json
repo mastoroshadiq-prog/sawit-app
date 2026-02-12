@@ -9,10 +9,10 @@
     "trust_server_certificate": "yes"
   },
   "supabase_postgres": {
-    "host": "https://jofdimvnknmauvfeocyu.supabase.co",
+    "host": "aws-1-ap-southeast-1.pooler.supabase.com",
     "port": 5432,
     "database": "postgres",
-    "username": "postgres",
+    "username": "postgres.jofdimvnknmauvfeocyu",
     "password": "786@kebunApp",
     "sslmode": "require"
   },

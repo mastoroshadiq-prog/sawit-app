@@ -317,6 +317,10 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
     if (!networkReady) return;
 
     final startIndex = startFrom == null ? 0 : orderedSteps.indexOf(startFrom);
+    final failedBeforeRun = _firstFailedStep();
+    debugPrint(
+      '[InitialSync][start] startFrom=${startFrom?.name ?? 'null'} startIndex=$startIndex failedBefore=${failedBeforeRun?.name ?? 'none'} doneBefore=${stepStates.values.where((e) => e.done).length}/${orderedSteps.length}',
+    );
     setState(() {
       isSyncing = true;
       for (int i = startIndex; i < orderedSteps.length; i++) {
@@ -335,6 +339,9 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
     for (int i = startIndex; i < orderedSteps.length; i++) {
       final step = orderedSteps[i];
       final state = stepStates[step]!;
+      debugPrint(
+        '[InitialSync][step.begin] step=${step.name} done=${state.done} err=${state.errorMessage}',
+      );
 
       setState(() {
         currentStep = step.label;
@@ -353,6 +360,9 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
           progress = _computeProgress();
           currentStep = 'Selesai: ${step.label}';
         });
+        debugPrint(
+          '[InitialSync][step.success] step=${step.name} count=$count doneNow=${stepStates.values.where((e) => e.done).length}/${orderedSteps.length}',
+        );
       } catch (e) {
         setState(() {
           state.running = false;
@@ -362,6 +372,9 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
           currentStep = 'Gagal: ${step.label}';
           progress = _computeProgress();
         });
+        debugPrint(
+          '[InitialSync][step.failed] step=${step.name} err=${state.errorMessage} doneNow=${stepStates.values.where((e) => e.done).length}/${orderedSteps.length}',
+        );
         await _checkpointStore.save(stepStates);
         if (!mounted) return;
         setState(() => isSyncing = false);
@@ -371,9 +384,15 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
       await _checkpointStore.save(stepStates);
     }
 
+    final notDoneSteps = orderedSteps.where((s) => stepStates[s]?.done != true).map((s) => s.name).toList();
+    debugPrint(
+      '[InitialSync][finish] startFrom=${startFrom?.name ?? 'null'} done=${stepStates.values.where((e) => e.done).length}/${orderedSteps.length} notDone=$notDoneSteps',
+    );
+
     await _checkpointStore.clear();
     if (!mounted) return;
     setState(() => isSyncing = false);
+    debugPrint('[InitialSync][navigate] to=/menu');
     Navigator.pushReplacementNamed(context, "/menu");
   }
 
@@ -435,17 +454,22 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
       throw Exception("API SPK gagal: ${result['message']}");
     }
 
+    String asStr(dynamic v, {String fallback = ''}) {
+      if (v == null) return fallback;
+      return v.toString();
+    }
+
     final data = result['data'];
     final List<Assignment> assignments = (data as List).map<Assignment>((item) {
       return Assignment(
-        id: item['id_task'],
-        spkNumber: item['nomor_spk'],
-        taskName: item['nama_task'],
-        estate: item['estate'],
-        division: item['divisi'],
-        block: item['lokasi'],
-        rowNumber: item['nbaris'],
-        treeNumber: item['n_pokok'],
+        id: asStr(item['id_task']),
+        spkNumber: asStr(item['nomor_spk']),
+        taskName: asStr(item['nama_task']),
+        estate: asStr(item['estate'], fallback: '-'),
+        division: asStr(item['divisi'], fallback: '-'),
+        block: asStr(item['lokasi']),
+        rowNumber: asStr(item['nbaris'], fallback: '0'),
+        treeNumber: asStr(item['n_pokok'], fallback: '0'),
         petugas: username.toString(),
       );
     }).toList();
@@ -479,14 +503,19 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
       }
 
       final data = result['data'];
+      String asStr(dynamic v, {String fallback = ''}) {
+        if (v == null) return fallback;
+        return v.toString();
+      }
+
       final List<Pohon> pohons = (data as List).map<Pohon>((item) {
         return Pohon(
-          blok: item['blok'],
-          nbaris: item['nbaris'],
-          npohon: item['npohon'],
-          objectId: item['objectId'],
-          status: item['status'],
-          nflag: item['nflag'],
+          blok: asStr(item['blok']),
+          nbaris: asStr(item['nbaris']),
+          npohon: asStr(item['npohon']),
+          objectId: asStr(item['objectId']),
+          status: asStr(item['status'], fallback: '0'),
+          nflag: asStr(item['nflag'], fallback: '0'),
         );
       }).toList();
 
@@ -512,14 +541,19 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
       throw Exception("API SPR gagal: ${result['message']}");
     }
 
+    String asStr(dynamic v, {String fallback = ''}) {
+      if (v == null) return fallback;
+      return v.toString();
+    }
+
     final data = result['data'];
     final List<SPR> spr = (data as List).map<SPR>((item) {
       return SPR(
-        idSPR: item['id_spr'],
-        blok: item['blok'],
-        nbaris: item['nbaris'],
-        sprAwal: item['spr_awal'],
-        sprAkhir: item['spr_akhir'],
+        idSPR: asStr(item['id_spr']),
+        blok: asStr(item['blok']),
+        nbaris: asStr(item['nbaris']),
+        sprAwal: asStr(item['spr_awal'], fallback: '0'),
+        sprAkhir: asStr(item['spr_akhir'], fallback: '0'),
         keterangan: '-',
         petugas: username.toString(),
         flag: 0,

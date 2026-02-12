@@ -38,13 +38,39 @@ flutter run \
 ```bash
 flutter run \
   --dart-define=SYNC_SOURCE=supabase \
-  --dart-define=SUPABASE_API_BASE_URL=https://<your-project>.supabase.co/functions/v1 \
-  --dart-define=SUPABASE_SYNC_POST_URL=https://<your-project>.supabase.co/functions/v1/sync
+  --dart-define=SUPABASE_API_BASE_URL=https://<your-project>.supabase.co/functions/v1/wfsnew-adapter \
+  --dart-define=SUPABASE_SYNC_POST_URL=https://<your-project>.supabase.co/functions/v1/wfsnew-adapter
+```
+
+### Opsi lebih ringkas (disarankan): satu file JSON
+
+Anda bisa simpan semua define dalam satu file:
+- [`env/supabase.mobile.json`](env/supabase.mobile.json)
+
+Jalankan:
+
+```bash
+flutter run --dart-define-from-file=env/supabase.mobile.json
+```
+
+Untuk build release juga bisa:
+
+```bash
+flutter build apk --dart-define-from-file=env/supabase.mobile.json
 ```
 
 Catatan:
 - `SUPABASE_API_BASE_URL` dipakai oleh API auth/spk/pohon/spr.
 - `SUPABASE_SYNC_POST_URL` dipakai oleh service upload batch sync.
+
+Endpoint adapter yang digunakan:
+- [`supabase/functions/wfsnew-adapter/index.ts`](supabase/functions/wfsnew-adapter/index.ts)
+
+Deploy function:
+
+```bash
+supabase functions deploy wfsnew-adapter --no-verify-jwt
+```
 
 ## 4) Nilai default saat tidak diisi
 

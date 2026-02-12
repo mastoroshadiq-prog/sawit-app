@@ -6,14 +6,21 @@ class ApiPohon {
   //static const String baseUrlX = "https://aaa.com/auth";
   static String get baseUrl => SyncSourceConfig.activeApiBaseUrl;
 
+  static String _buildReadUrl(String route, String query) {
+    if (SyncSourceConfig.useSupabase) {
+      return "$baseUrl?r=$route&q=$query";
+    }
+    return "$baseUrl/wfs.jsp?r=$route&q=$query";
+  }
+
   static Future<Map<String, dynamic>> getSpkPohon(String username) async {
     // Bentuk URL
     //final url = Uri.parse("$baseUrl/wfs.jsp?r=spk.pohon&q=$username");
     Uri url;
     if(username=="simulasi") {
-      url = Uri.parse("$baseUrl/wfs.jsp?r=sim.pohon&q=$username");
+      url = Uri.parse(_buildReadUrl('sim.pohon', username));
     }else {
-      url = Uri.parse("$baseUrl/wfs.jsp?r=blok.pohon&q=$username");
+      url = Uri.parse(_buildReadUrl('blok.pohon', username));
     }
 
     try {
