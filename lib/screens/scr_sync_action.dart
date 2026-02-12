@@ -1,6 +1,9 @@
 ﻿// lib/screens/scr_sync_action.dart
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../mvc_libs/connection_utils.dart';
 import 'sync/sync_models.dart';
 import 'sync/sync_service.dart';
@@ -79,11 +82,83 @@ class _SyncPageState extends State<SyncPage> {
   double sendProgress = 0.0;
   String sendLabel = "";
 
+  StreamSubscription<dynamic>? _connectivitySubscription;
+  bool _wasInternetAvailable = true;
+  bool _isInternetRestoreDialogOpen = false;
+
   @override
   void initState() {
     super.initState();
     isFetching = false;
     isSending = false;
+    _initConnectivityWatcher();
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initConnectivityWatcher() async {
+    _wasInternetAvailable = await ConnectionUtils.checkConnection();
+
+    _connectivitySubscription =
+        Connectivity().onConnectivityChanged.listen((_) async {
+      final nowConnected = await ConnectionUtils.checkConnection();
+      if (!mounted) return;
+
+      if (!_wasInternetAvailable && nowConnected) {
+        _onInternetRestored();
+      }
+
+      _wasInternetAvailable = nowConnected;
+    });
+  }
+
+  bool _hasPendingDataToSync() {
+    return batchTugas.isNotEmpty ||
+        batchKesehatan.isNotEmpty ||
+        batchReposisi.isNotEmpty ||
+        batchObservasi.isNotEmpty ||
+        batchSPRlog.isNotEmpty ||
+        batchAuditlog.isNotEmpty;
+  }
+
+  Future<void> _onInternetRestored() async {
+    if (!mounted || isSending || isFetching) return;
+    if (!_hasPendingDataToSync()) return;
+    if (_isInternetRestoreDialogOpen) return;
+
+    _isInternetRestoreDialogOpen = true;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: const Text("Koneksi Internet"),
+        content: const Text(
+          "koneksi internet tersedia, silakan lakukan sync segera..",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: const Text("BATAL"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _sendAllBatchesX();
+            },
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+
+    _isInternetRestoreDialogOpen = false;
   }
 
   // -----------------------------------------

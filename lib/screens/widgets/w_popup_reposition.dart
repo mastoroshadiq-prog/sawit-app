@@ -356,38 +356,36 @@ SingleChildScrollView _buildPopupContent(
                     return;
                   }
 
-                  await presetStore.save(
-                    mode: selectedMode,
-                    label: activeOption?.label ?? primaryOption.label,
-                  );
+                  if (context.mounted) {
+                    showDialog<void>(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (_) => const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
 
-                  final result = await _syncPlantReposition(
-                    pohon.blok,
-                    pohonIndex,
-                    primaryOption.label,
-                    pohon.objectId,
-                    pohon.npohon,
-                    pohon.nbaris,
-                    petugas,
-                    primaryOption.isVirtual,
-                    attributeLabels: combinedLabels,
-                  );
+                  try {
+                    await presetStore.save(
+                      mode: selectedMode,
+                      label: activeOption?.label ?? primaryOption.label,
+                    );
 
-                  unawaited(
-                    GeoAuditService().captureAndQueueReposisiEvent(
-                      userId: petugas,
-                      blok: pohon.blok,
-                      idTanaman: pohon.objectId,
-                      idReposisi: result.idReposisi,
-                      actionLabel: combinedLabels.join('+'),
-                      rowNumber: pohon.nbaris,
-                      treeNumber: pohon.npohon,
-                    ),
-                  );
+                    final result = await _syncPlantReposition(
+                      pohon.blok,
+                      pohonIndex,
+                      primaryOption.label,
+                      pohon.objectId,
+                      pohon.npohon,
+                      pohon.nbaris,
+                      petugas,
+                      primaryOption.isVirtual,
+                      attributeLabels: combinedLabels,
+                    );
 
-                  if (photoFile != null) {
                     unawaited(
-                      GeoPhotoService().captureAndQueuePhoto(
+                      GeoAuditService().captureAndQueueReposisiEvent(
                         userId: petugas,
                         blok: pohon.blok,
                         idTanaman: pohon.objectId,
@@ -395,13 +393,35 @@ SingleChildScrollView _buildPopupContent(
                         actionLabel: combinedLabels.join('+'),
                         rowNumber: pohon.nbaris,
                         treeNumber: pohon.npohon,
-                        localPath: encryptedPhotoPath ?? photoFile!.path,
                       ),
                     );
-                  }
 
-                  if (context.mounted) {
-                    Navigator.pop(context, result);
+                    if (photoFile != null) {
+                      unawaited(
+                        GeoPhotoService().captureAndQueuePhoto(
+                          userId: petugas,
+                          blok: pohon.blok,
+                          idTanaman: pohon.objectId,
+                          idReposisi: result.idReposisi,
+                          actionLabel: combinedLabels.join('+'),
+                          rowNumber: pohon.nbaris,
+                          treeNumber: pohon.npohon,
+                          localPath: encryptedPhotoPath ?? photoFile!.path,
+                        ),
+                      );
+                    }
+
+                    if (context.mounted) {
+                      Navigator.of(context, rootNavigator: true).pop();
+                      Navigator.pop(context, result);
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      Navigator.of(context, rootNavigator: true).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Gagal simpan: $e')),
+                      );
+                    }
                   }
                 },
               ),

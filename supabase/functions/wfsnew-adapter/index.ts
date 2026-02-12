@@ -85,24 +85,24 @@ function rowByTarget(target: string, paramRaw: string): Record<string, unknown> 
       }
     case 'IKP':
       return {
-        idKesehatan: n(p[0]),
-        idTanaman: n(p[1]),
-        statusAwal: n(p[2]),
-        statusAkhir: n(p[3]),
-        kodeStatus: n(p[4]),
-        jenisPohon: n(p[5]),
+        idkesehatan: n(p[0]),
+        idtanaman: n(p[1]),
+        statusawal: n(p[2]),
+        statusakhir: n(p[3]),
+        kodestatus: n(p[4]),
+        jenispohon: n(p[5]),
         petugas: n(p[6]),
         flag: 1,
       }
     case 'IRP':
       return {
-        idReposisi: n(p[0]),
-        idTanaman: n(p[1]),
-        pohonAwal: n(p[2]),
-        barisAwal: n(p[3]),
-        pohonTujuan: n(p[4]),
-        barisTujuan: n(p[5]),
-        tipeRiwayat: n(p[6]),
+        idreposisi: n(p[0]),
+        idtanaman: n(p[1]),
+        pohonawal: n(p[2]),
+        barisawal: n(p[3]),
+        pohontujuan: n(p[4]),
+        baristujuan: n(p[5]),
+        tiperiwayat: n(p[6]),
         keterangan: n(p[7]),
         petugas: n(p[8]),
         blok: n(p[9]),
@@ -110,8 +110,8 @@ function rowByTarget(target: string, paramRaw: string): Record<string, unknown> 
       }
     case 'IOB':
       return {
-        idObservasi: n(p[0]),
-        idTanaman: n(p[1]),
+        idobservasi: n(p[0]),
+        idtanaman: n(p[1]),
         blok: n(p[2]),
         baris: n(p[3]),
         pohon: n(p[4]),
@@ -119,26 +119,26 @@ function rowByTarget(target: string, paramRaw: string): Record<string, unknown> 
         detail: n(p[6]),
         catatan: n(p[7]),
         petugas: n(p[8]),
-        createdAt: n(p[9]),
+        createdat: n(p[9]),
         flag: 1,
       }
     case 'IAL':
       return {
-        idAudit: n(p[0]),
-        userId: n(p[1]),
+        idaudit: n(p[0]),
+        userid: n(p[1]),
         action: n(p[2]),
         detail: n(p[3]),
-        logDate: n(p[4]),
+        logdate: n(p[4]),
         device: n(p[5]),
         flag: 1,
       }
     case 'ISPR':
       return {
-        idLog: n(p[0]),
+        idlog: n(p[0]),
         blok: n(p[1]),
         baris: n(p[2]),
-        sprAwal: n(p[3]),
-        sprAkhir: n(p[4]),
+        sprawal: n(p[3]),
+        sprakhir: n(p[4]),
         keterangan: n(p[5]),
         petugas: n(p[6]),
         flag: 1,
@@ -479,11 +479,11 @@ async function handleLegacySync(
 
     // upsert berdasarkan PK natural per target
     let onConflict = 'id'
-    if (target === 'IKP') onConflict = 'idKesehatan'
-    if (target === 'IRP') onConflict = 'idReposisi'
-    if (target === 'IOB') onConflict = 'idObservasi'
-    if (target === 'IAL') onConflict = 'idAudit'
-    if (target === 'ISPR') onConflict = 'idLog'
+    if (target === 'IKP') onConflict = 'idkesehatan'
+    if (target === 'IRP') onConflict = 'idreposisi'
+    if (target === 'IOB') onConflict = 'idobservasi'
+    if (target === 'IAL') onConflict = 'idaudit'
+    if (target === 'ISPR') onConflict = 'idlog'
 
     const { error } = await supabase.from(table).upsert(row, { onConflict })
     if (error) {

@@ -509,11 +509,20 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
       }
 
       final List<Pohon> pohons = (data as List).map<Pohon>((item) {
+        final objectIdVal =
+            item['objectId'] ?? item['objectid'] ?? item['id_tanaman'];
+        final objectIdStr = asStr(objectIdVal);
+        final fallbackObjectId = [
+          asStr(item['blok']),
+          asStr(item['nbaris']),
+          asStr(item['npohon']),
+        ].join('-');
+
         return Pohon(
           blok: asStr(item['blok']),
           nbaris: asStr(item['nbaris']),
           npohon: asStr(item['npohon']),
-          objectId: asStr(item['objectId']),
+          objectId: objectIdStr.isNotEmpty ? objectIdStr : fallbackObjectId,
           status: asStr(item['status'], fallback: '0'),
           nflag: asStr(item['nflag'], fallback: '0'),
         );
@@ -832,76 +841,15 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
                 ),
                 const SizedBox(height: 20),
                 if (!isSyncing && failedStep != null)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => _startSync(startFrom: failedStep),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: Colors.white54),
-                          ),
-                          child: const Text('ULANG STEP GAGAL'),
-                        ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => _startSync(startFrom: failedStep),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white54),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            final selected = await showDialog<InitialSyncStep>(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: const Text('Mulai dari step'),
-                                content: SizedBox(
-                                  width: double.maxFinite,
-                                  child: ListView(
-                                    shrinkWrap: true,
-                                    children: orderedSteps
-                                        .map(
-                                          (s) => ListTile(
-                                            title: Text(s.label),
-                                            onTap: () => Navigator.pop(ctx, s),
-                                          ),
-                                        )
-                                        .toList(),
-                                  ),
-                                ),
-                              ),
-                            );
-
-                            if (selected != null) {
-                              _startSync(startFrom: selected);
-                            }
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: Colors.white54),
-                          ),
-                          child: const Text('PILIH STEP'),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                if (!isSyncing)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          await _checkpointStore.clear();
-                          for (final s in orderedSteps) {
-                            stepStates[s] = InitialStepState(step: s);
-                          }
-                          setState(() {
-                            progress = 0;
-                            currentStep = 'Mengulang sinkronisasi dari awal';
-                          });
-                          _startSync();
-                        },
-                        child: const Text('ULANG SEMUA'),
-                      ),
+                      child: const Text('ULANG STEP GAGAL'),
                     ),
                   ),
 

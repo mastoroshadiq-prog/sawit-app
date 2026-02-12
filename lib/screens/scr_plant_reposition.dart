@@ -33,6 +33,21 @@ class _PlantRepositionScreen extends State<PlantRepositionScreen> {
   late List<String> barisTerpilih; // baris aktif : state
   final Map<String, GlobalKey> _treeKeys = {};
 
+  int? _toRowNum(String raw) {
+    final v = raw.trim();
+    if (v.isEmpty) return null;
+
+    final direct = int.tryParse(v);
+    if (direct != null) return direct;
+
+    final asDouble = double.tryParse(v);
+    if (asDouble != null) return asDouble.round();
+
+    final m = RegExp(r'(\d+)').firstMatch(v);
+    if (m != null) return int.tryParse(m.group(1)!);
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -71,10 +86,14 @@ class _PlantRepositionScreen extends State<PlantRepositionScreen> {
     List<String> barisTerpilih,
   ) {
     final Map<int, List<Pohon>> grouped = {};
+    final selectedRows = barisTerpilih
+        .map((e) => _toRowNum(e) ?? -1)
+        .where((e) => e > 0)
+        .toSet();
 
     for (var p in pohonData) {
-      final baris = int.tryParse(p.nbaris) ?? 0;
-      if (barisTerpilih.contains(p.nbaris)) {
+      final baris = _toRowNum(p.nbaris) ?? 0;
+      if (selectedRows.contains(baris)) {
         grouped.putIfAbsent(baris, () => []).add(p);
       }
     }
@@ -100,13 +119,27 @@ class _PlantRepositionScreen extends State<PlantRepositionScreen> {
     List<SPR> sprList,
   ) {
     final Map<String, String> hasil = {};
+    final targetBlok = blok.trim().toLowerCase();
 
     for (final p in barisTerpilih) {
-      final item = sprList.firstWhere(
-        (element) => element.blok == blok && element.nbaris == p,
-      );
-      //print('blok $blok : ${item.sprAwal}/${item.sprAkhir}');
-      hasil[p] = '${item.sprAwal}/${item.sprAkhir}';
+      final targetBaris = _toRowNum(p);
+      if (targetBaris == null) continue;
+
+      SPR? item;
+      for (final element in sprList) {
+        final baris = _toRowNum(element.nbaris);
+        final blokEq = element.blok.trim().toLowerCase() == targetBlok;
+        if (blokEq && baris == targetBaris) {
+          item = element;
+          break;
+        }
+      }
+
+      if (item != null) {
+        hasil[p] = '${item.sprAwal}/${item.sprAkhir}';
+      } else {
+        hasil[p] = '-';
+      }
     }
 
     return hasil;
@@ -210,11 +243,71 @@ class _PlantRepositionScreen extends State<PlantRepositionScreen> {
         final pohonData = snapshot.data ?? [];
 
         //List<Pohon> pohonData = dummyPohonList;
-        final grouped = groupByBaris(pohonData, barisTerpilih);
+        var grouped = groupByBaris(pohonData, barisTerpilih);
+
+        // Jika jendela baris aktif menghasilkan kolom terlalu sedikit,
+        // fallback ke 3 baris valid pertama dari data aktual.
+        if (pohonData.isNotEmpty && grouped.keys.length < 2) {
+          final sortedRows = pohonData
+              .map((e) => _toRowNum(e.nbaris) ?? 0)
+              .where((e) => e > 0)
+              .toSet()
+              .toList()
+            ..sort();
+
+          if (sortedRows.isNotEmpty) {
+            final takeRows = sortedRows.take(3).toList();
+            final fallbackRows = takeRows.map((e) => e.toString()).toList();
+            grouped = groupByBaris(pohonData, fallbackRows);
+
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              setState(() {
+                barisTerpilih = fallbackRows;
+                currentRow = takeRows.length >= 2 ? takeRows[1] : takeRows.first;
+              });
+            });
+          }
+        }
 
         // 2. Cek status kosong
         if (grouped.isEmpty) {
-          return buildEmptyState();
+          // Fallback: jika data pohon ada tapi 3 baris aktif saat ini tidak cocok,
+          // pindahkan fokus ke baris valid terdekat agar layar tidak langsung "kosong".
+          if (pohonData.isNotEmpty) {
+            final sortedRows = pohonData
+                .map((e) => int.tryParse(e.nbaris) ?? 0)
+                .where((e) => e > 0)
+                .toSet()
+                .toList()
+              ..sort();
+
+            if (sortedRows.isNotEmpty) {
+              final seedRow = sortedRows.first;
+              final fallbackRows = [
+                (seedRow - 1).toString(),
+                seedRow.toString(),
+                (seedRow + 1).toString(),
+              ];
+              grouped = groupByBaris(pohonData, fallbackRows);
+
+              if (grouped.isNotEmpty) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  if (currentRow != seedRow) {
+                    setState(() {
+                      currentRow = seedRow;
+                      barisTerpilih = fallbackRows;
+                    });
+                  }
+                });
+              }
+            }
+          }
+
+          if (grouped.isEmpty) {
+            return buildEmptyState();
+          }
         }
 
         //final blok = petugas?.blok;
