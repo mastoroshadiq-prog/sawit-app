@@ -184,6 +184,10 @@ class _SyncPageState extends State<SyncPage> {
         batchAuditlog.isNotEmpty;
   }
 
+  int _countBatchItems(List<List<Map<String, dynamic>>> batches) {
+    return batches.fold<int>(0, (sum, batch) => sum + batch.length);
+  }
+
   Future<void> _onInternetRestored() async {
     if (!mounted || isSending || isFetching) return;
     if (!_hasPendingDataToSync()) return;
@@ -780,17 +784,17 @@ class _SyncPageState extends State<SyncPage> {
               textColor: textColor,
             ),
             const SizedBox(height: 18),
-            BatchDataCard(
-              states: states,
-              tugasCount: batchTugas.length,
-              kesehatanCount: batchKesehatan.length,
-              reposisiCount: batchReposisi.length,
-              observasiCount: batchObservasi.length,
-              auditlogCount: batchAuditlog.length,
-              sprlogCount: batchSPRlog.length,
-              secondary: secondary,
-              textColor: textColor,
-            ),
+             BatchDataCard(
+               states: states,
+               tugasCount: _countBatchItems(batchTugas),
+               kesehatanCount: _countBatchItems(batchKesehatan),
+               reposisiCount: _countBatchItems(batchReposisi),
+               observasiCount: _countBatchItems(batchObservasi),
+               auditlogCount: _countBatchItems(batchAuditlog),
+               sprlogCount: _countBatchItems(batchSPRlog),
+               secondary: secondary,
+               textColor: textColor,
+             ),
             const SizedBox(height: 18),
             _buildActionArea(),
             const SizedBox(height: 12),

@@ -366,6 +366,13 @@ class _MenuScreen extends State<MenuScreen> {
     }
   }
 
+  Future<void> _openKoreksiTemuanAndRefresh() async {
+    await Navigator.pushNamed(context, '/reposisi');
+    if (!mounted) return;
+    await _refreshDashboard();
+    await _loadActiveContext();
+  }
+
   @override
   Widget build(BuildContext context) {
     final menuItems = _menuItems(context);
@@ -702,11 +709,7 @@ class _MenuScreen extends State<MenuScreen> {
         icon: Icons.forest,
         label: 'KOREKSI & TEMUAN',
         color: const Color(0xFF8E6A8F),
-        onTap: cfgNavigator(
-          context: context,
-          action: 'push',
-          routeName: '/reposisi',
-        ),
+        onTap: _openKoreksiTemuanAndRefresh,
       ),
     ];
   }

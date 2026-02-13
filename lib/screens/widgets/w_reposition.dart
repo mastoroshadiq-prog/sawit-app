@@ -50,35 +50,34 @@ Widget buildBarisHeader(
       return Container(
         width: columnWidth - 6,
         alignment: Alignment.center,
-        margin: const EdgeInsets.all(4),
-        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 1),
+        margin: const EdgeInsets.fromLTRB(4, 2, 4, 4),
+        padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 2),
         decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(0),
-          border: Border(
-            //left: BorderSide(color: Colors.green, width: 3),
-            left: BorderSide.none,
-            right: BorderSide.none,
-            top: BorderSide.none, // tidak ada garis atas
-            bottom: BorderSide.none, // tidak ada garis bawah
-          ),
+          color: const Color(0xFFFCFEFD),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFDCEBE6)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
-        //child: resText(TextAlign.left, 'Baris $b', 20.0, FontStyle.normal, true, Colors.white),
         child: Column(
           children: [
             buildCountSPR(
               context,
               jml,
-              Colors.brown.shade600,
+              const Color(0xFFE6D6CE),
               0,
               blok,
               nbaris,
               petugas,
               onRefresh,
             ),
-            //const Divider(height: 2, thickness: 2, color: Colors.white, indent: 0, endIndent: 0),
             const SizedBox(height: 5),
-            buildCount('Baris $b', Colors.green.shade700, 2.0),
+            buildCount('Baris $b', const Color(0xFFDDF2E6), 4.0),
           ],
         ),
       );
@@ -88,20 +87,24 @@ Widget buildBarisHeader(
 
 Widget buildCount(String strTeks, Color clrBackground, double dbVer) {
   return Container(
-    width: double.infinity, // agar background memenuhi lebar
+    width: double.infinity,
     decoration: BoxDecoration(
-      color: clrBackground,
+      gradient: LinearGradient(
+        colors: [clrBackground, const Color(0xFFCDE8DA)],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ),
       borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: const Color(0xFFBEDCCD)),
     ),
     padding: EdgeInsets.symmetric(vertical: dbVer, horizontal: 8),
-    //color: Colors.blueGrey,
     child: resText(
       TextAlign.center,
       strTeks,
-      20.0,
+      18.0,
       FontStyle.normal,
       true,
-      Colors.white,
+      const Color(0xFF1F6A5A),
     ),
   );
 }
@@ -116,34 +119,45 @@ Widget buildCountSPR(
   String petugas,
   VoidCallback? onRefresh,
 ) {
-  return Container(
-    width: double.infinity, // agar background memenuhi lebar
-    decoration: BoxDecoration(
-      color: clrBackground,
-      borderRadius: BorderRadius.circular(8),
-    ),
-    padding: EdgeInsets.symmetric(vertical: dbVer, horizontal: 8),
-    //color: Colors.blueGrey,
-    //child: resText(TextAlign.center, strTeks, 20.0, FontStyle.normal, true, Colors.white,),
+  return Material(
+    color: Colors.transparent,
     child: InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () {
         _showEditDialog(context, strTeks, blok, nbaris, petugas, onRefresh);
       },
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: 5),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 6),
         decoration: BoxDecoration(
-          color: Colors.brown.shade600,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          strTeks,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+          gradient: LinearGradient(
+            colors: [clrBackground, const Color(0xFFD7C0B4)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFC9AFA2)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.forest_rounded,
+              size: 14,
+              color: Color(0xFF5B3E35),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              strTeks,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 29,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF5B3E35),
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
         ),
       ),
     ),
@@ -368,6 +382,8 @@ Widget _buildTreeButton(
     iconPath = 'assets/icons/miring-kiri.png';
   } else if (pohon.nflag == '3') {
     iconPath = 'assets/icons/kenthosan.png';
+    color = Colors.red.shade50;
+    borderColor = Colors.red.shade500;
   } else if (pohon.nflag == '4') {
     iconPath = 'assets/icons/ditebang.png';
   } else if (pohon.nflag == '5') {
@@ -423,6 +439,30 @@ Widget _buildTreeButton(
     overlayTextBadgeColor = Colors.red.shade600;
     overlayIconSize = 34;
     overlayBadgeSize = 52;
+    color = Colors.red.shade50;
+    borderColor = Colors.red.shade500;
+  } else if (pohon.nflag == '13') {
+    iconPath = 'assets/icons/miring-kanan.png';
+    overlayIconPath = 'assets/icons/infek-gano.png';
+    overlayText = 'S';
+    overlayBorderColor = Colors.red.shade500;
+    overlayTextBadgeColor = Colors.red.shade600;
+    color = Colors.red.shade50;
+    borderColor = Colors.red.shade500;
+  } else if (pohon.nflag == '14') {
+    iconPath = 'assets/icons/miring-kiri.png';
+    overlayIconPath = 'assets/icons/infek-gano.png';
+    overlayText = 'S';
+    overlayBorderColor = Colors.red.shade500;
+    overlayTextBadgeColor = Colors.red.shade600;
+    color = Colors.red.shade50;
+    borderColor = Colors.red.shade500;
+  } else if (pohon.nflag == '15') {
+    iconPath = 'assets/icons/normal.png';
+    overlayIconPath = 'assets/icons/infek-gano.png';
+    overlayText = 'S';
+    overlayBorderColor = Colors.red.shade500;
+    overlayTextBadgeColor = Colors.red.shade600;
     color = Colors.red.shade50;
     borderColor = Colors.red.shade500;
   } else if (pohon.nflag == '9') {

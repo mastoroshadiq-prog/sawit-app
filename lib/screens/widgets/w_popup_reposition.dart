@@ -150,7 +150,7 @@ SingleChildScrollView _buildPopupContent(
   final presetStore = _PopupPresetStore();
   _PopupMode selectedMode = _PopupMode.koreksi;
   _TreeStatusOption? selectedKoreksiOption;
-  _TreeStatusOption? selectedTemuanOption;
+  final Set<String> selectedTemuanLabels = <String>{};
   XFile? photoFile;
   String? encryptedPhotoPath;
 
@@ -182,11 +182,18 @@ SingleChildScrollView _buildPopupContent(
                         if (selectedMode == _PopupMode.koreksi) {
                           selectedKoreksiOption = op;
                         } else {
-                          selectedTemuanOption = op;
+                          selectedTemuanLabels.add(op.label);
                         }
                         break;
                       }
                     }
+                  }
+
+                  final canUseTemuan = selectedKoreksiOption != null &&
+                      selectedKoreksiOption!.label != 'KOSONG' &&
+                      selectedKoreksiOption!.label != 'KENTHOS';
+                  if (!canUseTemuan && selectedMode == _PopupMode.temuan) {
+                    selectedMode = _PopupMode.koreksi;
                   }
                 });
               },
@@ -195,6 +202,19 @@ SingleChildScrollView _buildPopupContent(
             ),
           ),
           const SizedBox(height: 10),
+          if (selectedKoreksiOption != null &&
+              (selectedKoreksiOption!.label == 'KOSONG' ||
+                  selectedKoreksiOption!.label == 'KENTHOS'))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Temuan dinonaktifkan untuk koreksi KOSONG/KENTHOS.',
+                style: TextStyle(
+                  color: Colors.orange.shade800,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -207,7 +227,22 @@ SingleChildScrollView _buildPopupContent(
               ChoiceChip(
                 label: const Text('TEMUAN'),
                 selected: selectedMode == _PopupMode.temuan,
-                onSelected: (_) => setState(() => selectedMode = _PopupMode.temuan),
+                onSelected: (_) {
+                  final canUseTemuan = selectedKoreksiOption != null &&
+                      selectedKoreksiOption!.label != 'KOSONG' &&
+                      selectedKoreksiOption!.label != 'KENTHOS';
+                  if (!canUseTemuan) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Pilih koreksi (selain KOSONG/KENTHOS) sebelum menambah temuan.',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  setState(() => selectedMode = _PopupMode.temuan);
+                },
               ),
             ],
           ),
@@ -228,12 +263,39 @@ SingleChildScrollView _buildPopupContent(
                     borderColor: option.borderColor,
                     isSelected: selectedMode == _PopupMode.koreksi
                         ? selectedKoreksiOption?.label == option.label
-                        : selectedTemuanOption?.label == option.label,
+                        : selectedTemuanLabels.contains(option.label),
                     onTap: () => setState(() {
                       if (selectedMode == _PopupMode.koreksi) {
                         selectedKoreksiOption = option;
+                        final canUseTemuan = selectedKoreksiOption != null &&
+                            selectedKoreksiOption!.label != 'KOSONG' &&
+                            selectedKoreksiOption!.label != 'KENTHOS';
+                        if (!canUseTemuan) {
+                          selectedTemuanLabels.clear();
+                          if (selectedMode == _PopupMode.temuan) {
+                            selectedMode = _PopupMode.koreksi;
+                          }
+                        }
                       } else {
-                        selectedTemuanOption = option;
+                        final canUseTemuan = selectedKoreksiOption != null &&
+                            selectedKoreksiOption!.label != 'KOSONG' &&
+                            selectedKoreksiOption!.label != 'KENTHOS';
+                        if (!canUseTemuan) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Temuan tidak tersedia untuk KOSONG/KENTHOS.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (selectedTemuanLabels.contains(option.label)) {
+                          selectedTemuanLabels.remove(option.label);
+                        } else {
+                          selectedTemuanLabels.add(option.label);
+                        }
                       }
                     }),
                   ),
@@ -282,11 +344,11 @@ SingleChildScrollView _buildPopupContent(
             ),
           ),
           const SizedBox(height: 16),
-          if (selectedKoreksiOption != null || selectedTemuanOption != null)
+          if (selectedKoreksiOption != null || selectedTemuanLabels.isNotEmpty)
             Text(
               'Pilihan: ${[
                 if (selectedKoreksiOption != null) selectedKoreksiOption!.label,
-                if (selectedTemuanOption != null) selectedTemuanOption!.label,
+                ...selectedTemuanLabels,
               ].join(', ')}',
               style: TextStyle(
                 color: Colors.green.shade800,
@@ -316,22 +378,31 @@ SingleChildScrollView _buildPopupContent(
                   ),
                 ),
                 () async {
-                  if (selectedKoreksiOption == null && selectedTemuanOption == null) {
+                  if (selectedKoreksiOption == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Pilih minimal satu status.'),
+                        content: Text('Pilih koreksi terlebih dahulu.'),
                       ),
                     );
                     return;
                   }
 
-                  final activeOption = selectedMode == _PopupMode.koreksi
-                      ? selectedKoreksiOption
-                      : selectedTemuanOption;
-                  final primaryOption = selectedKoreksiOption ?? selectedTemuanOption!;
+                  final canUseTemuan = selectedKoreksiOption != null &&
+                      selectedKoreksiOption!.label != 'KOSONG' &&
+                      selectedKoreksiOption!.label != 'KENTHOS';
+                  if (!canUseTemuan && selectedTemuanLabels.isNotEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Temuan tidak boleh dipilih untuk KOSONG/KENTHOS.'),
+                      ),
+                    );
+                    return;
+                  }
+
+                  final primaryOption = selectedKoreksiOption!;
                   final combinedLabels = <String>[
-                    if (selectedKoreksiOption != null) selectedKoreksiOption!.label,
-                    if (selectedTemuanOption != null) selectedTemuanOption!.label,
+                    selectedKoreksiOption!.label,
+                    ...selectedTemuanLabels,
                   ];
 
                   final confirm = await showDialog<bool>(
@@ -369,7 +440,11 @@ SingleChildScrollView _buildPopupContent(
                   try {
                     await presetStore.save(
                       mode: selectedMode,
-                      label: activeOption?.label ?? primaryOption.label,
+                      label: selectedMode == _PopupMode.koreksi
+                          ? primaryOption.label
+                          : (selectedTemuanLabels.isNotEmpty
+                              ? selectedTemuanLabels.first
+                              : primaryOption.label),
                     );
 
                     final result = await _syncPlantReposition(
@@ -684,7 +759,17 @@ Future<ReposisiResult> _syncPlantReposition(
   final hasGanoderma = attributeLabels.contains('G');
   final hasSisipan = attributeLabels.contains('SISIPAN');
 
-  if (hasGanoderma) {
+  if (hasGanoderma && hasSisipan) {
+    if (nFlag == '1') {
+      nFlag = '13'; // G + SISIPAN + MIRING KANAN
+    } else if (nFlag == '2') {
+      nFlag = '14'; // G + SISIPAN + MIRING KIRI
+    } else if (nFlag == '0') {
+      nFlag = '15'; // G + SISIPAN + TEGAK
+    } else {
+      nFlag = '15';
+    }
+  } else if (hasGanoderma) {
     if (nFlag == '1') {
       nFlag = '6'; // G + MIRING KANAN
     } else if (nFlag == '2') {
@@ -694,7 +779,11 @@ Future<ReposisiResult> _syncPlantReposition(
     } else if (nFlag != '5') {
       nFlag = '5';
     }
-  } else if (hasSisipan) {
+  }
+
+  // SISIPAN tetap dicatat sebagai atribut.
+  // Untuk visual nflag, ketika bersamaan dengan G, prioritas visual tetap ke status G.
+  if (hasSisipan && !hasGanoderma) {
     if (nFlag == '1') {
       nFlag = '10'; // SISIPAN + MIRING KANAN
     } else if (nFlag == '2') {
@@ -777,7 +866,8 @@ Future<ReposisiResult> _syncPlantReposition(
     }
 
     if (isVirtual) {
-      if (['0', '3', '4', '5', '6', '7', '8', '10', '11', '12'].contains(nFlag)) {
+      if (['0', '3', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15']
+          .contains(nFlag)) {
         final pohon = Pohon(
           blok: blok,
           nbaris: barisTujuan,

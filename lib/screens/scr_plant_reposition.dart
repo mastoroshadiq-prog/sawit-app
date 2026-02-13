@@ -464,23 +464,47 @@ class _PlantRepositionScreen extends State<PlantRepositionScreen> {
               // Layer Loading Overlay
               if (_isScrolling)
                 Container(
-                  color: Colors.black, // Efek blur/transparan
+                  color: Colors.black.withValues(alpha: 0.45),
                   child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(color: Colors.white),
-                        const SizedBox(height: 16),
-                        //const Text("Menyelaraskan Posisi..."),
-                        resText(
-                          TextAlign.left,
-                          "Tunggu..",
-                          18,
-                          FontStyle.normal,
-                          true,
-                          Colors.white,
-                        ),
-                      ],
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.72),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x26000000),
+                            blurRadius: 14,
+                            offset: Offset(0, 6),
+                          ),
+                        ],
+                        border: Border.all(color: const Color(0xFFD6E7E2)),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                Color(0xFF8FCE00),
+                              ),
+                              backgroundColor: Color(0x44FFFFFF),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          resText(
+                            TextAlign.center,
+                            "proses menyimpan...",
+                            16,
+                            FontStyle.normal,
+                            true,
+                            Colors.white,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -500,104 +524,122 @@ Widget buildHeaderInfo(
   required VoidCallback onRepo,
   required VoidCallback onNext,
 }) {
-  // Style tombol yang berubah warna saat ditekan
-  ButtonStyle customButtonStyle({bool isCenter = false}) {
+  const Color primary = Color(0xFF1F6A5A);
+  const Color cardBorder = Color(0xFFD6E7E2);
+
+  ButtonStyle sideButtonStyle() {
     return ElevatedButton.styleFrom(
-      backgroundColor: Colors.brown.shade50, // Warna dasar
-      foregroundColor: Colors.brown.shade900, // Warna teks/ikon
+      backgroundColor: Colors.white,
+      foregroundColor: primary,
       elevation: 0,
+      padding: const EdgeInsets.symmetric(vertical: 11),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(isCenter ? 4 : 8),
+        borderRadius: BorderRadius.circular(12),
       ),
     ).copyWith(
-      // LOGIKA PERUBAHAN WARNA SAAT DIKLIK
+      side: const WidgetStatePropertyAll(
+        BorderSide(color: cardBorder, width: 1.2),
+      ),
+      overlayColor: WidgetStatePropertyAll(primary.withValues(alpha: 0.08)),
+      shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+    );
+  }
+
+  ButtonStyle centerButtonStyle() {
+    return ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xFFE3F2EE),
+      foregroundColor: primary,
+      disabledBackgroundColor: const Color(0xFFE3F2EE),
+      disabledForegroundColor: primary.withValues(alpha: 0.65),
+      elevation: 0,
+      padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    ).copyWith(
+      side: const WidgetStatePropertyAll(
+        BorderSide(color: cardBorder, width: 1.2),
+      ),
       backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
         if (states.contains(WidgetState.pressed)) {
-          return Colors.orange.shade300; // Warna kontras saat ditekan
+          return const Color(0xFFD4ECE4);
         }
-        return Colors.teal.shade800; // Warna kembali semula
+        return const Color(0xFFE3F2EE);
       }),
+      shadowColor: const WidgetStatePropertyAll(Colors.transparent),
     );
   }
 
   return Container(
-    padding: const EdgeInsets.all(8),
-    //width: double.infinity,
-    height: 60,
+    padding: const EdgeInsets.all(10),
     decoration: BoxDecoration(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(0),
-      border: Border(
-        bottom: BorderSide(
-          color: Colors.brown.shade800,
-          width: 3.0, // atur ketebalan di sini
-        ),
+      gradient: const LinearGradient(
+        colors: [Color(0xFFF1F7F5), Colors.white],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
       ),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: cardBorder),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
     ),
     child: Row(
-      //crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        //const SizedBox(width: 8),
-        // 1. TOMBOL PREV (<<)
         Expanded(
           flex: 1,
-          child: ElevatedButton(
-            style: customButtonStyle(),
-            onPressed: onPrev,
-            child: const Text(
-              "<<",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                fontSize: 25.0,
+          child: Tooltip(
+            message: 'Baris sebelumnya',
+            child: ElevatedButton(
+              style: sideButtonStyle(),
+              onPressed: onPrev,
+              child: const Icon(
+                Icons.keyboard_double_arrow_left_rounded,
+                size: 24,
               ),
             ),
           ),
         ),
 
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
 
-        // 2. TOMBOL REPOSISI (Tanpa Ikon)
         Expanded(
           flex: 2,
-          child: ElevatedButton(
-            style: customButtonStyle(isCenter: true),
+          child: ElevatedButton.icon(
+            style: centerButtonStyle(),
             onPressed: onRepo,
-            child: const Text(
+            icon: const Icon(Icons.my_location_rounded, size: 18),
+            label: const Text(
               "POSISI AWAL",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
-                fontSize: 16.0,
+                color: Color(0xFF225A4D),
+                fontSize: 14.5,
+                letterSpacing: 0.4,
               ),
             ),
           ),
         ),
 
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
 
-        // 3. TOMBOL NEXT (>>)
         Expanded(
           flex: 1,
-          child: ElevatedButton(
-            style: customButtonStyle(),
-            onPressed: onNext,
-            child: const Text(
-              ">>",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                fontSize: 25.0,
+          child: Tooltip(
+            message: 'Baris berikutnya',
+            child: ElevatedButton(
+              style: sideButtonStyle(),
+              onPressed: onNext,
+              child: const Icon(
+                Icons.keyboard_double_arrow_right_rounded,
+                size: 24,
               ),
             ),
           ),
-        ),
-
-        // GARIS DI BAWAH KONTEN
-        const Divider(
-          height: 1, // Jarak yang ditempati divider
-          thickness: 2, // Tebal garis fisik
-          color: Colors.black, // Warna garis
         ),
       ],
     ),

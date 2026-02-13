@@ -44,21 +44,13 @@ class PohonDao {
 
   Future<List<Pohon>> getAllPohon() async {
     final db = await dbHelper.database;
-    final res = await db.query(
-      'pohon',
-      where: 'nflag != ?',
-      whereArgs: ['3'], // string
-    );
+    final res = await db.query('pohon');
     return res.map((e) => Pohon.fromMap(e)).toList();
   }
 
   Future<List<Pohon>> getAllPohonByBlok(String blok) async {
     final db = await dbHelper.database;
-    final res = await db.query(
-      'pohon',
-      where: 'nflag != ? and blok = ?',
-      whereArgs: ['3', blok],
-    );
+    final res = await db.query('pohon', where: 'blok = ?', whereArgs: [blok]);
     return res.map((e) => Pohon.fromMap(e)).toList();
   }
 
