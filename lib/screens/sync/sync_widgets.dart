@@ -24,47 +24,68 @@ class FetchProgressSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.eco, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              "Mengumpulkan data...",
-              style: TextStyle(
-                fontSize: 16,
-                color: textColor,
-                fontWeight: FontWeight.w600,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD6E7E2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.eco, size: 18, color: Color(0xFF2D8A73)),
+              const SizedBox(width: 8),
+              Text(
+                "Pengumpulan Data",
+                style: TextStyle(
+                  fontSize: 15,
+                  color: textColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                "${(fetchProgress * 100).toInt()}%",
+                style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              minHeight: 10,
+              value: fetchProgress,
+              backgroundColor: progressBg,
+              valueColor: AlwaysStoppedAnimation(primary),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(fetchLabel, style: TextStyle(color: textColor.withValues(alpha: 0.9))),
+          if (!isFetching)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green, size: 16),
+                  SizedBox(width: 6),
+                  Text("Data siap diproses", style: TextStyle(fontSize: 12)),
+                ],
               ),
             ),
-            const SizedBox(width: 8),
-            if (isFetching)
-              const SizedBox.shrink()
-            else
-              const Icon(Icons.check_circle, color: Colors.green),
-          ],
-        ),
-        const SizedBox(height: 8),
-        LinearProgressIndicator(
-          minHeight: 12,
-          value: fetchProgress,
-          backgroundColor: progressBg,
-          valueColor: AlwaysStoppedAnimation(primary),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Text(fetchLabel, style: TextStyle(color: textColor)),
-            const Spacer(),
-            Text(
-              "${(fetchProgress * 100).toInt()}%",
-              style: TextStyle(color: textColor),
-            ),
-          ],
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -99,13 +120,14 @@ class BatchDataCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: secondary,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD6E7E2)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -113,13 +135,19 @@ class BatchDataCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "Batch Data Siap Dikirim",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: textColor,
-            ),
+          Row(
+            children: [
+              const Icon(Icons.inventory_2_outlined, color: Color(0xFF2D8A73), size: 18),
+              const SizedBox(width: 8),
+              Text(
+                "Batch Data Siap Dikirim",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: textColor,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           BatchRow(

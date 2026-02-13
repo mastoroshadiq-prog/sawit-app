@@ -4,13 +4,24 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:kebun_sawit/mvc_dao/dao_audit_log.dart';
+import 'package:kebun_sawit/mvc_dao/dao_kesehatan.dart';
+import 'package:kebun_sawit/mvc_dao/dao_observasi_tambahan.dart';
+import 'package:kebun_sawit/mvc_dao/dao_reposisi.dart';
+import 'package:kebun_sawit/mvc_dao/dao_spr_log.dart';
+import 'package:kebun_sawit/mvc_dao/dao_task_execution.dart';
 import '../../mvc_libs/connection_utils.dart';
 import 'sync/sync_models.dart';
 import 'sync/sync_service.dart';
 import 'sync/sync_widgets.dart';
 
 class SyncPage extends StatefulWidget {
-  const SyncPage({super.key});
+  final bool autoStartSync;
+
+  const SyncPage({
+    super.key,
+    this.autoStartSync = false,
+  });
 
   @override
   State<SyncPage> createState() => _SyncPageState();
@@ -29,12 +40,12 @@ class _SyncPageState extends State<SyncPage> {
   // -----------------------------
   final SyncService _syncService = SyncService();
 
-  final Color primary = Colors.green.shade700;
-  final Color secondary = Colors.green.shade200;
-  final Color accent = Colors.green.shade50;
-  final Color textColor = Colors.green.shade900;
-  final Color progressBg = Colors.green.shade100;
-  final Color successColor = Colors.green.shade400;
+  final Color primary = const Color(0xFF1F6A5A);
+  final Color secondary = const Color(0xFFEAF4F0);
+  final Color accent = const Color(0xFFF6F8FB);
+  final Color textColor = const Color(0xFF225A4D);
+  final Color progressBg = const Color(0xFFDDEDE7);
+  final Color successColor = const Color(0xFF3FAE72);
 
   // -----------------------------
   // STATE
@@ -85,13 +96,61 @@ class _SyncPageState extends State<SyncPage> {
   StreamSubscription<dynamic>? _connectivitySubscription;
   bool _wasInternetAvailable = true;
   bool _isInternetRestoreDialogOpen = false;
+  bool _hasPendingSyncInDb = false;
+  bool _checkingPendingState = true;
 
   @override
   void initState() {
     super.initState();
     isFetching = false;
     isSending = false;
+    _refreshPendingDbState();
     _initConnectivityWatcher();
+
+    if (widget.autoStartSync) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || isSending) return;
+        _runAutoSyncFlowFromInternetRestore();
+      });
+    }
+  }
+
+  Future<void> _refreshPendingDbState() async {
+    if (mounted) {
+      setState(() {
+        _checkingPendingState = true;
+      });
+    }
+
+    final tugas = (await TaskExecutionDao().getAllTaskExecByFlag()).isNotEmpty;
+    final kesehatan = (await KesehatanDao().getAllZeroKesehatan()).isNotEmpty;
+    final reposisi = (await ReposisiDao().getAllZeroReposisi()).isNotEmpty;
+    final observasi = (await ObservasiTambahanDao().getAllZeroObservasi()).isNotEmpty;
+    final spr = (await SPRLogDao().getAllZeroSPRLog()).isNotEmpty;
+    final audit = (await AuditLogDao().getAllZeroAuditLog()).isNotEmpty;
+
+    if (!mounted) return;
+    setState(() {
+      _hasPendingSyncInDb = tugas || kesehatan || reposisi || observasi || spr || audit;
+      _checkingPendingState = false;
+    });
+  }
+
+  Future<void> _runAutoSyncFlowFromInternetRestore() async {
+    await _autoFetchAllBatches();
+    if (!mounted) return;
+
+    if (!_hasPendingDataToSync()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tidak ada data pending untuk dikirim.'),
+        ),
+      );
+      return;
+    }
+
+    await _sendAllBatchesX();
+    await _refreshPendingDbState();
   }
 
   @override
@@ -260,6 +319,24 @@ class _SyncPageState extends State<SyncPage> {
 // SEND ALL BATCHES (REFACTORED)
 // -----------------------------------------
   Future<void> _sendAllBatchesX() async {
+    final pendingGroups = [
+      batchTugas,
+      batchKesehatan,
+      batchReposisi,
+      batchObservasi,
+      batchSPRlog,
+      batchAuditlog,
+    ];
+    final hasAnyData = pendingGroups.any((x) => x.isNotEmpty);
+    if (!hasAnyData) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tidak ada data untuk dikirim ke server.')),
+        );
+      }
+      return;
+    }
+
     setState(() {
       isSending = true;
       sendProgress = 0.0;
@@ -352,6 +429,17 @@ class _SyncPageState extends State<SyncPage> {
       isSending = false;
       sendLabel = "Pengiriman selesai";
     });
+
+    final failCount = states.values.where((s) => s == BatchState.failed).length;
+    if (failCount == 0) {
+      await _refreshPendingDbState();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sinkronisasi sukses. Kembali ke menu utama...')),
+      );
+      Navigator.of(context).pushNamedAndRemoveUntil('/menu', (route) => false);
+      return;
+    }
 
     _showSummaryDialog();
   }
@@ -532,6 +620,7 @@ class _SyncPageState extends State<SyncPage> {
   }
 
   void _showNoConnectionDialog() {
+    _wasInternetAvailable = false;
     final navigator = Navigator.of(context);
     showDialog(
       context: navigator.context,
@@ -580,6 +669,7 @@ class _SyncPageState extends State<SyncPage> {
   Future<void> _onSendPressedWithCheck() async {
     final isConnected = await ConnectionUtils.checkConnection();
     if (!isConnected) {
+      _wasInternetAvailable = false;
       _showNoConnectionDialog();
       return;
     }
@@ -597,7 +687,7 @@ class _SyncPageState extends State<SyncPage> {
       batchSPRlog.clear();
       batchAuditlog.clear();
     });
-    _autoFetchAllBatches();
+    _autoFetchAllBatches().then((_) => _refreshPendingDbState());
   }
 
   // -----------------------------------------
@@ -611,8 +701,21 @@ class _SyncPageState extends State<SyncPage> {
       child: Scaffold(
         backgroundColor: accent,
         appBar: AppBar(
-          backgroundColor: primary,
+          elevation: 0,
+          foregroundColor: Colors.white,
           title: const Text("Sinkronisasi Data Tugas"),
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF1F6A5A),
+                  Color(0xFF2D8A73),
+                ],
+              ),
+            ),
+          ),
         ),
         body: Stack(
           children: [
@@ -636,6 +739,36 @@ class _SyncPageState extends State<SyncPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF1F7F5), Colors.white],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFD6E7E2)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.sync_alt, color: Color(0xFF2D8A73)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Sinkronkan data lapangan dengan aman dan bertahap.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF4D7A6E),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
             _buildFetchButton(),
             const SizedBox(height: 14),
             FetchProgressSection(
@@ -669,12 +802,13 @@ class _SyncPageState extends State<SyncPage> {
   }
 
   Widget _buildFetchButton() {
-    final canFetch = !isFetching && !isSending;
+    final canFetch = !_checkingPendingState && _hasPendingSyncInDb && !isFetching && !isSending;
 
     return ElevatedButton.icon(
       style: ElevatedButton.styleFrom(
         backgroundColor: primary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
         minimumSize: const Size.fromHeight(48),
       ),
@@ -703,9 +837,10 @@ class _SyncPageState extends State<SyncPage> {
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
             backgroundColor: primary,
+            elevation: 0,
             padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
             minimumSize: const Size.fromHeight(48),
           ),
@@ -721,7 +856,7 @@ class _SyncPageState extends State<SyncPage> {
           Text(
             isFetching
                 ? "Menunggu pengumpulan data selesai..."
-                : "Tidak ada data untuk dikirim",
+                : (!_hasPendingSyncInDb ? "Tidak ada data pending untuk sync" : "Tidak ada data untuk dikirim"),
             style: TextStyle(color: textColor.withValues(alpha: 0.8)),
           ),
       ],
