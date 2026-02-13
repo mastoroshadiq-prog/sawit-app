@@ -58,6 +58,16 @@ class PetugasDao {
     );
   }
 
+  Future<int> updateBlok(String akun, String blok) async {
+    final db = await _dbHelper.database;
+    return await db.update(
+      'petugas',
+      {'blok': blok},
+      where: 'akun = ?',
+      whereArgs: [akun],
+    );
+  }
+
   // DELETE ALL (opsional)
   Future<int> deleteAllWorkers() async {
     final db = await _dbHelper.database;

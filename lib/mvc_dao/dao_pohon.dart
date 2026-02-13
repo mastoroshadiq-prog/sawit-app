@@ -133,4 +133,13 @@ class PohonDao {
     // Hapus semua data
     return await db.delete('pohon');
   }
+
+  Future<int> deleteByBlok(String blok) async {
+    final db = await dbHelper.database;
+    return await db.delete(
+      'pohon',
+      where: 'blok = ?',
+      whereArgs: [blok],
+    );
+  }
 }

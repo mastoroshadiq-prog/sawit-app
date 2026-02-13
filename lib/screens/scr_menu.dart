@@ -1,10 +1,14 @@
 // screens/assignment_list_screen.dart
 import 'package:flutter/material.dart';
+import 'package:kebun_sawit/mvc_dao/dao_petugas.dart';
 import 'package:kebun_sawit/mvc_models/laporan.dart';
 import 'package:kebun_sawit/mvc_dao/dao_kesehatan.dart';
 import 'package:kebun_sawit/mvc_dao/dao_observasi_tambahan.dart';
 import 'package:kebun_sawit/mvc_dao/dao_reposisi.dart';
 import 'package:kebun_sawit/mvc_dao/dao_task_execution.dart';
+import 'package:kebun_sawit/mvc_libs/active_block_store.dart';
+import 'package:kebun_sawit/mvc_services/api_blok.dart';
+import 'package:kebun_sawit/mvc_services/block_switch_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:kebun_sawit/screens/scr_reposisi_drilldown.dart';
 import '../mvc_libs/pdf_preview.dart';
@@ -32,6 +36,9 @@ class _MenuScreen extends State<MenuScreen> {
   late final RekapPekerjaan rekapPekerjaan;
   late Future<_FieldSummary> _summaryFuture;
   String _appVersionLabel = '-';
+  bool _isSwitchingBlock = false;
+  String _activeDivisi = '-';
+  String _activeBlok = '-';
 
   static const List<String> _hari = [
     'Senin',
@@ -71,6 +78,8 @@ class _MenuScreen extends State<MenuScreen> {
     super.initState();
     _summaryFuture = _loadFieldSummary();
     _loadAppVersion();
+    _loadActiveContext();
+    ActiveBlockStore.notifier.addListener(_onActiveBlockChanged);
     // Future dibuat sekali di initState
     // assignmentFuture = AssignmentDao().getAllAssignment();  // ambil data SQLite
     // petugas = PetugasDao().getPetugas();
@@ -125,6 +134,29 @@ class _MenuScreen extends State<MenuScreen> {
     );
   }
 
+  @override
+  void dispose() {
+    ActiveBlockStore.notifier.removeListener(_onActiveBlockChanged);
+    super.dispose();
+  }
+
+  void _onActiveBlockChanged() {
+    _loadActiveContext();
+  }
+
+  Future<void> _loadActiveContext() async {
+    final petugas = await PetugasDao().getPetugas();
+    final divisiRaw = (petugas?.divisi ?? '-').trim();
+    final blokStore = ((await ActiveBlockStore.get()) ?? '').trim();
+    final blokRaw = blokStore.isNotEmpty ? blokStore : (petugas?.blok ?? '-').trim();
+
+    if (!mounted) return;
+    setState(() {
+      _activeDivisi = divisiRaw.isEmpty ? '-' : divisiRaw;
+      _activeBlok = blokRaw.isEmpty ? '-' : blokRaw;
+    });
+  }
+
   Future<void> _loadAppVersion() async {
     try {
       final info = await PackageInfo.fromPlatform();
@@ -160,6 +192,178 @@ class _MenuScreen extends State<MenuScreen> {
       _summaryFuture = _loadFieldSummary();
     });
     await _summaryFuture;
+  }
+
+  Future<void> _openSwitchBlockDialog() async {
+    if (_isSwitchingBlock) return;
+
+    final petugas = await PetugasDao().getPetugas();
+    final username = (petugas?.akun ?? '').trim();
+    if (username.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Data user lokal tidak ditemukan')),
+      );
+      return;
+    }
+
+    final listResult = await ApiBlok.getBlokList(username);
+    if (!mounted) return;
+    if (listResult['success'] != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal ambil daftar blok: ${listResult['message']}')),
+      );
+      return;
+    }
+
+    final rows = (listResult['data'] as List?) ?? const [];
+    final options = <String>[];
+    for (final row in rows) {
+      if (row is! Map) continue;
+      final blok = (row['blok'] ?? '').toString().trim();
+      if (blok.isEmpty) continue;
+      if (!options.contains(blok)) options.add(blok);
+    }
+
+    if (options.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Daftar blok kosong untuk user ini')),
+      );
+      return;
+    }
+
+    final active = ((await ActiveBlockStore.get()) ?? '').trim();
+    if (!mounted) return;
+    var selected = active.isNotEmpty && options.contains(active) ? active : options.first;
+
+    if (!context.mounted) return;
+    final target = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocal) => AlertDialog(
+            title: const Text('Pindah Blok Aktif'),
+            content: DropdownButtonFormField<String>(
+              initialValue: selected,
+              items: options
+                  .map((b) => DropdownMenuItem<String>(value: b, child: Text(b)))
+                  .toList(),
+              onChanged: (v) {
+                if (v == null) return;
+                setLocal(() => selected = v);
+              },
+              decoration: const InputDecoration(
+                labelText: 'Blok Tujuan',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(selected),
+                child: const Text('Lanjut'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!mounted || target == null) return;
+    final targetBlok = target.trim();
+    if (targetBlok.isEmpty || targetBlok == active) {
+      return;
+    }
+
+    final svc = BlockSwitchService();
+    final hasPending = await svc.hasUnsyncedData();
+    if (!mounted) return;
+
+    if (hasPending) {
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Data Pending Belum Sync'),
+          content: Text(
+            'Masih ada data transaksi belum terkirim. '
+            'Pindah blok sekarang berisiko mencampur konteks kerja.\n\n'
+            'Jika lanjut, aplikasi akan otomatis sinkronisasi pending dulu, '
+            'baru pindah ke blok $targetBlok.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Sync & Pindah Blok'),
+            ),
+          ],
+        ),
+      );
+
+      if (proceed != true || !mounted) return;
+    }
+
+    bool doSyncTarget = false;
+    if (!hasPending) {
+      final withSync = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Sinkronisasi Blok Tujuan'),
+          content: Text(
+            'Ingin sinkronisasi data blok $targetBlok sekarang?\n\n'
+            'YA = fetch pohon+SPR blok tujuan (incremental).\n'
+            'TIDAK = hanya pindah konteks blok aktif.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('TIDAK'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('YA, SYNC'),
+            ),
+          ],
+        ),
+      );
+
+      if (!mounted || withSync == null) return;
+      doSyncTarget = withSync;
+    }
+
+    setState(() => _isSwitchingBlock = true);
+    BlockSwitchResult result;
+    try {
+      if (hasPending) {
+        result = await svc.syncPendingThenSwitchBlock(
+          username: username,
+          targetBlok: targetBlok,
+        );
+      } else if (doSyncTarget) {
+        result = await svc.syncTargetBlockData(
+          username: username,
+          targetBlok: targetBlok,
+        );
+      } else {
+        result = await svc.switchContextOnly(targetBlok);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSwitchingBlock = false);
+      }
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
+    if (result.success) {
+      await _refreshDashboard();
+    }
   }
 
   @override
@@ -244,6 +448,26 @@ class _MenuScreen extends State<MenuScreen> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: _isSwitchingBlock ? null : _openSwitchBlockDialog,
+                      icon: _isSwitchingBlock
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.swap_horiz_rounded, size: 18),
+                      label: const Text('Pindah Blok Dinamis'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF225A4D),
+                        side: BorderSide(color: const Color(0xFF225A4D).withValues(alpha: 0.35)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -296,14 +520,38 @@ class _MenuScreen extends State<MenuScreen> {
                           color: Color(0xFF225A4D),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _tanggalHariIniLabel(),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF4D7A6E),
-                          fontWeight: FontWeight.w600,
-                        ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _tanggalHariIniLabel(),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF4D7A6E),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1F6A5A).withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: const Color(0xFF1F6A5A).withValues(alpha: 0.25),
+                              ),
+                            ),
+                            child: Text(
+                              '$_activeDivisi : $_activeBlok',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF1F6A5A),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 10),
                       Row(

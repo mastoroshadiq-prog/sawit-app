@@ -138,4 +138,13 @@ class SPRDao {
     return await db.delete('stand_per_row');
   }
 
+  Future<int> deleteByBlok(String blok) async {
+    final db = await _dbHelper.database;
+    return await db.delete(
+      'stand_per_row',
+      where: 'blok = ?',
+      whereArgs: [blok],
+    );
+  }
+
 }
