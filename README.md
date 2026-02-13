@@ -84,6 +84,65 @@ flutter run
 - Untuk deployment adapter Supabase, pastikan command dieksekusi dari root project.
 - Gunakan konfigurasi environment yang konsisten antara app Flutter dan Edge Function.
 
+## Login & Sync Policy (Current)
+
+Kebijakan terbaru agar workflow lapangan lebih efisien:
+
+- **Initial sync tidak wajib setiap login**.
+- Setelah login sukses, aplikasi akan cek kesiapan data lokal blok aktif (Assignment + Pohon + SPR).
+- Jika data lokal siap, user langsung masuk menu utama.
+- Jika belum siap, user diarahkan ke initial sync.
+- Sign out tersedia di menu utama, dengan warning bila ada data pending belum tersinkron.
+
+Referensi implementasi:
+
+- Smart login: [`tombolLogin()`](lib/screens/widgets/w_login.dart:163)
+- Initial sync tanaman + integrity: [`_syncTanaman()`](lib/screens/scr_initial_sync.dart:690)
+- Initial sync SPR: [`_syncSPRBlok()`](lib/screens/scr_initial_sync.dart:746)
+- Sign out + pending warning: [`_handleSignOut()`](lib/screens/scr_menu.dart:399)
+
+## Handover Cepat Antar Device (Wajib)
+
+Saat pindah laptop/PC, gunakan checklist ini agar konteks langsung tersambung:
+
+1. Pull branch terbaru dari remote.
+2. Baca bagian ini di README + ringkasan perubahan di [`CHANGELOG.md`](CHANGELOG.md).
+3. Jalankan baseline command:
+   - `flutter pub get`
+   - `flutter analyze`
+4. Validasi flow kritikal:
+   - Login user lama (tanpa initial sync berulang)
+   - Initial sync user/blok baru
+   - Outbound sync pending
+   - Sign out
+
+## Known Issues & Troubleshooting
+
+### Kasus: Integrity check gagal "Data pohon blok D001A kosong"
+
+Kemungkinan penyebab:
+
+- Mismatch format kode blok (case/whitespace) antara API dan SQLite.
+- Data lama blok bercampur dengan format blok berbeda.
+
+Perbaikan yang sudah diterapkan:
+
+- Normalisasi blok `trim + upper` pada proses sync.
+- Query DAO blok dibuat case-insensitive (`TRIM(UPPER(...))`).
+- Refresh data per blok dilakukan delete-by-blok sebelum insert ulang.
+
+Referensi:
+
+- [`PohonDao.getAllPohonByBlok()`](lib/mvc_dao/dao_pohon.dart:51)
+- [`SPRDao.getByBlok()`](lib/mvc_dao/dao_spr.dart:47)
+- [`_runPostSyncIntegrityCheck()`](lib/screens/scr_initial_sync.dart:340)
+
+## Next Steps Teknis (Prioritas)
+
+- Tambahkan marker versi schema lokal agar migrasi/compatibility lebih mudah dilacak.
+- Tambahkan dokumentasi release note singkat di setiap merge utama.
+- Tambahkan test skenario login ulang (same user), user switch, dan integrity post-sync.
+
 ## Roadmap Perbaikan (Disarankan)
 
 - Penyempurnaan retry initial sync agar selalu melanjutkan dari step gagal secara deterministik.
