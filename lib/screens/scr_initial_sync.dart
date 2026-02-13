@@ -197,6 +197,8 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
 
   List<InitialSyncStep> get orderedSteps => InitialSyncStep.values;
 
+  String _normBlock(String v) => v.trim().toUpperCase();
+
   @override
   void initState() {
     super.initState();
@@ -338,7 +340,7 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
   }
 
   Future<IntegrityCheckResult> _runPostSyncIntegrityCheck() async {
-    final selectedBlok = (activeBlok ?? blok.toString()).trim();
+    final selectedBlok = _normBlock(activeBlok ?? blok.toString());
 
     final assignmentLocal = (await AssignmentDao().getAllAssignment()).length;
     final pohonLocal = (await PohonDao().getAllPohonByBlok(selectedBlok)).length;
@@ -691,7 +693,8 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
     // API tanaman
     int unsyncedCount = await ReposisiDao().countUnsyncedReposisi();
     if (unsyncedCount == 0) {
-      final result = await ApiPohon.getPohonByBlok(activeBlok ?? blok.toString());
+      final selectedBlok = _normBlock(activeBlok ?? blok.toString());
+      final result = await ApiPohon.getPohonByBlok(selectedBlok);
 
       if (!result['success']) {
         throw Exception("API Pohon gagal: ${result['message']}");
@@ -699,7 +702,7 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
 
       final data = result['data'];
       if (data is List && data.isEmpty) {
-        final selected = activeBlok ?? blok.toString();
+        final selected = selectedBlok;
         throw Exception("Data pohon kosong untuk blok $selected");
       }
 
@@ -712,21 +715,30 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
         final objectIdVal =
             item['objectId'] ?? item['objectid'] ?? item['id_tanaman'];
         final objectIdStr = asStr(objectIdVal);
+        final blokFromApi = _normBlock(asStr(item['blok'], fallback: selectedBlok));
         final fallbackObjectId = [
-          asStr(item['blok']),
+          blokFromApi,
           asStr(item['nbaris']),
           asStr(item['npohon']),
         ].join('-');
 
         return Pohon(
-          blok: asStr(item['blok']),
+          blok: blokFromApi,
           nbaris: asStr(item['nbaris']),
           npohon: asStr(item['npohon']),
           objectId: objectIdStr.isNotEmpty ? objectIdStr : fallbackObjectId,
           status: asStr(item['status'], fallback: '0'),
           nflag: asStr(item['nflag'], fallback: '0'),
         );
-      }).toList();
+      }).where((p) => p.blok == selectedBlok).toList();
+
+      if (pohons.isEmpty) {
+        throw Exception(
+          "Data pohon blok $selectedBlok tidak ditemukan setelah normalisasi blok",
+        );
+      }
+
+      await PohonDao().deleteByBlok(selectedBlok);
 
       final inserted = await PohonDao().insertPohonBatch(pohons);
       if (inserted <= 0) throw Exception("Insert POHON gagal");
@@ -744,7 +756,8 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
   // STEP 4 â€” Ambil & Simpan Data Stand Per Row
   // ---------------------------------------------------------
   Future<int> _syncSPRBlok() async {
-    final result = await ApiSPR.getSprBlok(activeBlok ?? blok.toString());
+    final selectedBlok = _normBlock(activeBlok ?? blok.toString());
+    final result = await ApiSPR.getSprBlok(selectedBlok);
 
     if (!result['success']) {
       throw Exception("API SPR gagal: ${result['message']}");
@@ -757,9 +770,10 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
 
     final data = result['data'];
     final List<SPR> spr = (data as List).map<SPR>((item) {
+      final blokFromApi = _normBlock(asStr(item['blok'], fallback: selectedBlok));
       return SPR(
         idSPR: asStr(item['id_spr']),
-        blok: asStr(item['blok']),
+        blok: blokFromApi,
         nbaris: asStr(item['nbaris']),
         sprAwal: asStr(item['spr_awal'], fallback: '0'),
         sprAkhir: asStr(item['spr_akhir'], fallback: '0'),
@@ -767,7 +781,13 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
         petugas: username.toString(),
         flag: 0,
       );
-    }).toList();
+    }).where((s) => s.blok == selectedBlok).toList();
+
+    if (spr.isEmpty) {
+      throw Exception('Data SPR kosong untuk blok $selectedBlok');
+    }
+
+    await SPRDao().deleteByBlok(selectedBlok);
 
     final inserted = await SPRDao().insertSPRBatch(spr);
     if (inserted <= 0) throw Exception("Insert SPR gagal");

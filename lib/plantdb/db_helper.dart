@@ -247,6 +247,27 @@ class DBHelper {
     await _cleanDataOperasionalFlag1(db);
   }
 
+  Future<void> cleanDatabaseForUserSwitch() async {
+    final db = await database;
+    final tables = <String>[
+      'petugas',
+      'assignment',
+      'pohon',
+      'stand_per_row',
+      'eksekusi',
+      'kesehatan',
+      'reposisi',
+      'observasi_tambahan',
+      'auditlog',
+      'spr_log',
+      'riwayat',
+    ];
+
+    for (final table in tables) {
+      await db.delete(table);
+    }
+  }
+
   Future<void> _cleanDataMaster(Database db) async {
     final List<String> masterTables = [
       'petugas',

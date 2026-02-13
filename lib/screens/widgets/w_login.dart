@@ -4,8 +4,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../mvc_services/api_auth.dart';
 import '../../plantdb/db_helper.dart';
+import '../../mvc_dao/dao_assignment.dart';
+import '../../mvc_dao/dao_pohon.dart';
+import '../../mvc_dao/dao_spr.dart';
 import '../../mvc_models/petugas.dart';
 import '../../mvc_dao/dao_petugas.dart';
+import '../../mvc_libs/active_block_store.dart';
 import 'w_general.dart';
 
 Container contLatarBelakang() {
@@ -162,6 +166,17 @@ Widget tombolLogin(
   TextEditingController usernameController,
   TextEditingController passwordController,
 ) {
+  Future<bool> isLocalMasterReadyForBlok(String blok) async {
+    final block = blok.trim();
+    if (block.isEmpty) return false;
+
+    final assignmentCount = (await AssignmentDao().getAllAssignment()).length;
+    final pohonCount = (await PohonDao().getAllPohonByBlok(block)).length;
+    final sprCount = (await SPRDao().getByBlok(block)).length;
+
+    return assignmentCount > 0 && pohonCount > 0 && sprCount > 0;
+  }
+
   var isSubmitting = false;
   return StatefulBuilder(
     builder: (context, setButtonState) {
@@ -224,24 +239,44 @@ Widget tombolLogin(
                       divisi: safeStr(data['divisi'], fallback: '-'),
                     );
 
-                    await DBHelper()
-                        .cleanDatabaseAfterLogin()
-                        .timeout(const Duration(seconds: 12));
+                    final existing = await PetugasDao().getPetugas();
+                    final existingAkun = (existing?.akun ?? '').trim().toLowerCase();
+                    final incomingAkun = petugas.akun.trim().toLowerCase();
+                    final isUserSwitch =
+                        existingAkun.isNotEmpty && existingAkun != incomingAkun;
+
+                    if (isUserSwitch) {
+                      await DBHelper()
+                          .cleanDatabaseForUserSwitch()
+                          .timeout(const Duration(seconds: 15));
+                    }
 
                     final hasil = await PetugasDao().insertPetugas(petugas);
                     if (!context.mounted) return;
 
                     if (hasil > 0) {
+                      final selectedBlok = petugas.blok.trim();
+                      await ActiveBlockStore.set(selectedBlok);
+
+                      final isLocalReady =
+                          await isLocalMasterReadyForBlok(selectedBlok);
+
                       messenger.hideCurrentSnackBar();
-                      Navigator.pushReplacementNamed(
-                        context,
-                        routeName,
-                        arguments: {
-                          'username': username,
-                          'blok': petugas.blok,
-                          'selectedBlok': petugas.blok,
-                        },
-                      );
+                      if (!context.mounted) return;
+
+                      if (isLocalReady) {
+                        Navigator.pushReplacementNamed(context, '/menu');
+                      } else {
+                        Navigator.pushReplacementNamed(
+                          context,
+                          routeName,
+                          arguments: {
+                            'username': username,
+                            'blok': petugas.blok,
+                            'selectedBlok': petugas.blok,
+                          },
+                        );
+                      }
                       return;
                     }
 

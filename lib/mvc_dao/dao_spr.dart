@@ -48,7 +48,7 @@ class SPRDao {
     final db = await _dbHelper.database;
     final result = await db.query(
       'stand_per_row',
-      where: 'blok = ?',
+      where: 'TRIM(UPPER(blok)) = TRIM(UPPER(?))',
       whereArgs: [blok],
     );
     return result.map((e) => SPR.fromMap(e)).toList();
@@ -142,7 +142,7 @@ class SPRDao {
     final db = await _dbHelper.database;
     return await db.delete(
       'stand_per_row',
-      where: 'blok = ?',
+      where: 'TRIM(UPPER(blok)) = TRIM(UPPER(?))',
       whereArgs: [blok],
     );
   }

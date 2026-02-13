@@ -5,7 +5,9 @@ import 'package:kebun_sawit/mvc_models/laporan.dart';
 import 'package:kebun_sawit/mvc_dao/dao_kesehatan.dart';
 import 'package:kebun_sawit/mvc_dao/dao_observasi_tambahan.dart';
 import 'package:kebun_sawit/mvc_dao/dao_reposisi.dart';
+import 'package:kebun_sawit/mvc_dao/dao_spr_log.dart';
 import 'package:kebun_sawit/mvc_dao/dao_task_execution.dart';
+import 'package:kebun_sawit/mvc_dao/dao_audit_log.dart';
 import 'package:kebun_sawit/mvc_libs/active_block_store.dart';
 import 'package:kebun_sawit/mvc_services/api_blok.dart';
 import 'package:kebun_sawit/mvc_services/block_switch_service.dart';
@@ -373,6 +375,49 @@ class _MenuScreen extends State<MenuScreen> {
     await _loadActiveContext();
   }
 
+  Future<bool> _hasPendingSyncData() async {
+    final tugas = (await TaskExecutionDao().getAllTaskExecByFlag()).isNotEmpty;
+    final kesehatan = (await KesehatanDao().getAllZeroKesehatan()).isNotEmpty;
+    final reposisi = (await ReposisiDao().getAllZeroReposisi()).isNotEmpty;
+    final observasi = (await ObservasiTambahanDao().getAllZeroObservasi()).isNotEmpty;
+    final spr = (await SPRLogDao().getAllZeroSPRLog()).isNotEmpty;
+    final audit = (await AuditLogDao().getAllZeroAuditLog()).isNotEmpty;
+    return tugas || kesehatan || reposisi || observasi || spr || audit;
+  }
+
+  Future<void> _handleSignOut() async {
+    final hasPending = await _hasPendingSyncData();
+    if (!mounted) return;
+
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign Out'),
+        content: Text(
+          hasPending
+              ? 'Masih ada data pending yang belum sync. Jika sign out sekarang, data lokal tetap disimpan di perangkat dan akan dilanjutkan saat login user yang sama.\n\nLanjut sign out?'
+              : 'Keluar dari akun saat ini?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+
+    if (proceed != true || !mounted) return;
+
+    await ActiveBlockStore.set('');
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final menuItems = _menuItems(context);
@@ -383,6 +428,13 @@ class _MenuScreen extends State<MenuScreen> {
         title: const Text('Menu Utama'),
         elevation: 0,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            tooltip: 'Sign Out',
+            onPressed: _handleSignOut,
+            icon: const Icon(Icons.logout_rounded),
+          ),
+        ],
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(

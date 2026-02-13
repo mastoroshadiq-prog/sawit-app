@@ -50,7 +50,11 @@ class PohonDao {
 
   Future<List<Pohon>> getAllPohonByBlok(String blok) async {
     final db = await dbHelper.database;
-    final res = await db.query('pohon', where: 'blok = ?', whereArgs: [blok]);
+    final res = await db.query(
+      'pohon',
+      where: 'TRIM(UPPER(blok)) = TRIM(UPPER(?))',
+      whereArgs: [blok],
+    );
     return res.map((e) => Pohon.fromMap(e)).toList();
   }
 
@@ -130,7 +134,7 @@ class PohonDao {
     final db = await dbHelper.database;
     return await db.delete(
       'pohon',
-      where: 'blok = ?',
+      where: 'TRIM(UPPER(blok)) = TRIM(UPPER(?))',
       whereArgs: [blok],
     );
   }
