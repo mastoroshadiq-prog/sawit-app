@@ -52,6 +52,16 @@ class PohonDao {
     return res.map((e) => Pohon.fromMap(e)).toList();
   }
 
+  Future<List<Pohon>> getAllPohonByBlok(String blok) async {
+    final db = await dbHelper.database;
+    final res = await db.query(
+      'pohon',
+      where: 'nflag != ? and blok = ?',
+      whereArgs: ['3', blok],
+    );
+    return res.map((e) => Pohon.fromMap(e)).toList();
+  }
+
   Future<Pohon?> getPohonById(String objectId) async {
     final db = await dbHelper.database;
     final res = await db.query(

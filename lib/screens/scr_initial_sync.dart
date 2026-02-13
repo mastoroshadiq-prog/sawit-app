@@ -5,7 +5,9 @@ import 'dart:math' as math;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:kebun_sawit/mvc_libs/active_block_store.dart';
 import 'package:kebun_sawit/mvc_dao/dao_reposisi.dart';
+import 'package:kebun_sawit/mvc_services/api_blok.dart';
 import 'package:kebun_sawit/mvc_services/api_spr.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../mvc_dao/dao_assignment.dart';
@@ -149,11 +151,29 @@ class NetworkQualityResult {
   final String message;
 }
 
+class IntegrityCheckResult {
+  const IntegrityCheckResult({
+    required this.ok,
+    required this.message,
+    this.failedStep,
+  });
+
+  final bool ok;
+  final String message;
+  final InitialSyncStep? failedStep;
+}
+
 
 class InitialSyncPage extends StatefulWidget {
   final Object username;
   final Object blok;
-  const InitialSyncPage({super.key, required this.username, required this.blok});
+  final String? selectedBlok;
+  const InitialSyncPage({
+    super.key,
+    required this.username,
+    required this.blok,
+    this.selectedBlok,
+  });
 
   @override
   State<InitialSyncPage> createState() => _InitialSyncPageState();
@@ -165,6 +185,8 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
   bool isSyncing = false;
   late Object username;
   late Object blok;
+  String? activeBlok;
+  bool _blokDialogShown = false;
   late Map<InitialSyncStep, InitialStepState> stepStates;
   final _checkpointStore = InitialSyncCheckpointStore();
   bool _isCheckingNetwork = false;
@@ -180,6 +202,7 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
     super.initState();
     username = widget.username;
     blok = widget.blok;
+    activeBlok = widget.selectedBlok ?? widget.blok.toString();
     stepStates = {
       for (final s in orderedSteps) s: InitialStepState(step: s),
     };
@@ -187,6 +210,14 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
   }
 
   Future<void> _bootstrapSync() async {
+    final storedActiveBlok = await ActiveBlockStore.get();
+    if (storedActiveBlok != null && storedActiveBlok.trim().isNotEmpty) {
+      activeBlok = storedActiveBlok.trim();
+    }
+
+    await _ensureSelectedBlok();
+    if (!mounted) return;
+
     final networkReady = await _ensureNetworkReady(showSnackBar: false);
     if (!mounted || !networkReady) {
       setState(() {
@@ -211,6 +242,152 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
     }
 
     _startSync();
+  }
+
+  Future<void> _ensureSelectedBlok() async {
+    if (_blokDialogShown) return;
+    _blokDialogShown = true;
+
+    final user = username.toString();
+    final result = await ApiBlok.getBlokList(user);
+    if (!mounted) return;
+
+    if (result['success'] != true) {
+      activeBlok = widget.blok.toString();
+      return;
+    }
+
+    final list = (result['data'] as List?) ?? const [];
+    if (list.isEmpty) {
+      activeBlok = widget.blok.toString();
+      return;
+    }
+
+    final uniqueBlocks = <String, Map<String, String>>{};
+    for (final row in list) {
+      if (row is! Map) continue;
+      final kode = (row['blok'] ?? '').toString().trim();
+      if (kode.isEmpty) continue;
+
+      uniqueBlocks.putIfAbsent(kode, () {
+        return {
+          'blok': kode,
+          'blok_name': (row['blok_name'] ?? kode).toString(),
+          'estate': (row['estate'] ?? '-').toString(),
+          'divisi': (row['divisi'] ?? '-').toString(),
+        };
+      });
+    }
+
+    final blocks = uniqueBlocks.values.toList();
+    if (blocks.isEmpty) {
+      activeBlok = widget.blok.toString();
+      return;
+    }
+
+    String current = (activeBlok ?? '').trim();
+    if (current.isEmpty || !uniqueBlocks.containsKey(current)) {
+      current = blocks.first['blok'] ?? widget.blok.toString();
+    }
+
+    final selected = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        String tempValue = current;
+        return StatefulBuilder(
+          builder: (ctx, setLocal) => AlertDialog(
+            title: const Text('Pilih Blok Kerja'),
+            content: SizedBox(
+              width: 320,
+              child: DropdownButtonFormField<String>(
+                initialValue: tempValue,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Blok',
+                  border: OutlineInputBorder(),
+                ),
+                items: blocks.map((m) {
+                  final kode = (m['blok'] ?? '').toString();
+                  final nama = (m['blok_name'] ?? kode).toString();
+                  return DropdownMenuItem<String>(
+                    value: kode,
+                    child: Text('$kode - $nama'),
+                  );
+                }).toList(),
+                onChanged: (v) {
+                  if (v == null) return;
+                  setLocal(() => tempValue = v);
+                },
+              ),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(tempValue),
+                child: const Text('Gunakan Blok Ini'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!mounted) return;
+    activeBlok = (selected ?? current).trim();
+    await ActiveBlockStore.set(activeBlok ?? '');
+  }
+
+  Future<IntegrityCheckResult> _runPostSyncIntegrityCheck() async {
+    final selectedBlok = (activeBlok ?? blok.toString()).trim();
+
+    final assignmentLocal = (await AssignmentDao().getAllAssignment()).length;
+    final pohonLocal = (await PohonDao().getAllPohonByBlok(selectedBlok)).length;
+    final sprLocal = (await SPRDao().getByBlok(selectedBlok)).length;
+
+    final assignmentExpected = stepStates[InitialSyncStep.spk]?.count ?? 0;
+    final pohonExpected = stepStates[InitialSyncStep.tanaman]?.count ?? 0;
+    final sprExpected = stepStates[InitialSyncStep.spr]?.count ?? 0;
+
+    final issues = <String>[];
+    InitialSyncStep? failedStep;
+
+    if (assignmentExpected > 0 && assignmentLocal < assignmentExpected) {
+      issues.add('SPK lokal $assignmentLocal < expected $assignmentExpected');
+      failedStep ??= InitialSyncStep.spk;
+    }
+    if (pohonExpected > 0 && pohonLocal < pohonExpected) {
+      issues.add('Pohon $selectedBlok: lokal $pohonLocal < expected $pohonExpected');
+      failedStep ??= InitialSyncStep.tanaman;
+    }
+    if (sprExpected > 0 && sprLocal < sprExpected) {
+      issues.add('SPR $selectedBlok: lokal $sprLocal < expected $sprExpected');
+      failedStep ??= InitialSyncStep.spr;
+    }
+
+    // Guard kritikal untuk mencegah user lanjut dengan data blok kosong.
+    if (pohonLocal == 0) {
+      issues.add('Data pohon blok $selectedBlok kosong');
+      failedStep ??= InitialSyncStep.tanaman;
+    }
+    if (sprLocal == 0) {
+      issues.add('Data SPR blok $selectedBlok kosong');
+      failedStep ??= InitialSyncStep.spr;
+    }
+
+    if (issues.isNotEmpty) {
+      return IntegrityCheckResult(
+        ok: false,
+        message: issues.join(' | '),
+        failedStep: failedStep,
+      );
+    }
+
+    return IntegrityCheckResult(
+      ok: true,
+      message:
+          'Integrity OK - SPK:$assignmentLocal, Pohon($selectedBlok):$pohonLocal, SPR($selectedBlok):$sprLocal',
+      failedStep: null,
+    );
   }
 
   Future<NetworkQualityResult> _measureNetworkQuality() async {
@@ -389,6 +566,24 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
       '[InitialSync][finish] startFrom=${startFrom?.name ?? 'null'} done=${stepStates.values.where((e) => e.done).length}/${orderedSteps.length} notDone=$notDoneSteps',
     );
 
+    final integrity = await _runPostSyncIntegrityCheck();
+    if (!integrity.ok) {
+      final failed = integrity.failedStep ?? InitialSyncStep.finalize;
+      final failedState = stepStates[failed]!;
+      setState(() {
+        failedState.done = false;
+        failedState.errorMessage = 'Integrity check gagal: ${integrity.message}';
+        failedState.endedAt = DateTime.now();
+        isSyncing = false;
+        currentStep = 'Gagal validasi data lokal';
+        progress = _computeProgress();
+      });
+      await _checkpointStore.save(stepStates);
+      return;
+    }
+
+    debugPrint('[InitialSync][integrity] ${integrity.message}');
+
     await _checkpointStore.clear();
     if (!mounted) return;
     setState(() => isSyncing = false);
@@ -496,13 +691,18 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
     // API tanaman
     int unsyncedCount = await ReposisiDao().countUnsyncedReposisi();
     if (unsyncedCount == 0) {
-      final result = await ApiPohon.getSpkPohon(username.toString());
+      final result = await ApiPohon.getPohonByBlok(activeBlok ?? blok.toString());
 
       if (!result['success']) {
         throw Exception("API Pohon gagal: ${result['message']}");
       }
 
       final data = result['data'];
+      if (data is List && data.isEmpty) {
+        final selected = activeBlok ?? blok.toString();
+        throw Exception("Data pohon kosong untuk blok $selected");
+      }
+
       String asStr(dynamic v, {String fallback = ''}) {
         if (v == null) return fallback;
         return v.toString();
@@ -544,7 +744,7 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
   // STEP 4 â€” Ambil & Simpan Data Stand Per Row
   // ---------------------------------------------------------
   Future<int> _syncSPRBlok() async {
-    final result = await ApiSPR.getSprBlok(blok.toString());
+    final result = await ApiSPR.getSprBlok(activeBlok ?? blok.toString());
 
     if (!result['success']) {
       throw Exception("API SPR gagal: ${result['message']}");

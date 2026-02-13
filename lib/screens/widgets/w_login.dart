@@ -236,7 +236,11 @@ Widget tombolLogin(
                       Navigator.pushReplacementNamed(
                         context,
                         routeName,
-                        arguments: {'username': username, 'blok': petugas.blok},
+                        arguments: {
+                          'username': username,
+                          'blok': petugas.blok,
+                          'selectedBlok': petugas.blok,
+                        },
                       );
                       return;
                     }

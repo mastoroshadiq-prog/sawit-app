@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:kebun_sawit/mvc_dao/dao_spr.dart';
 import 'package:kebun_sawit/mvc_models/spr.dart';
 import 'package:kebun_sawit/screens/scr_models/reposition_result.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../screens/widgets/w_general.dart';
 import '../../mvc_dao/dao_pohon.dart';
 import '../../mvc_models/pohon.dart';
@@ -61,18 +62,31 @@ class _PlantRepositionScreen extends State<PlantRepositionScreen> {
 
   Future<void> _loadPetugas() async {
     petugas = await PetugasDao().getPetugas();
+    final prefs = await SharedPreferences.getInstance();
+    final activeBlok = prefs.getString('active_blok');
 
     if (petugas != null) {
       setState(() {
         divisi = petugas!.divisi;
-        blok = petugas!.blok;
+        blok = (activeBlok != null && activeBlok.trim().isNotEmpty)
+            ? activeBlok.trim()
+            : petugas!.blok;
         pengguna = petugas!.akun;
+        pohonFuture = PohonDao().getAllPohonByBlok(blok ?? '');
       });
+
+      // Reload SPR berdasarkan blok aktif agar header SPR tidak salah blok.
+      await _loadSPR();
     }
   }
 
   Future<void> _loadSPR() async {
-    spr = await SPRDao().getAllSPR();
+    final b = blok;
+    if (b != null && b.trim().isNotEmpty) {
+      spr = await SPRDao().getByBlok(b.trim());
+    } else {
+      spr = await SPRDao().getAllSPR();
+    }
     if (spr.isNotEmpty) {
       setState(() {
         sprList = spr;
@@ -116,7 +130,9 @@ class _PlantRepositionScreen extends State<PlantRepositionScreen> {
   Map<String, String> hitungSPR(
     String blok,
     List<String> barisTerpilih,
-    List<SPR> sprList,
+    List<SPR> sprList, {
+    List<Pohon>? pohonData,
+  }
   ) {
     final Map<String, String> hasil = {};
     final targetBlok = blok.trim().toLowerCase();
@@ -138,7 +154,18 @@ class _PlantRepositionScreen extends State<PlantRepositionScreen> {
       if (item != null) {
         hasil[p] = '${item.sprAwal}/${item.sprAkhir}';
       } else {
-        hasil[p] = '-';
+        // Fallback: jika data SPR belum tersedia untuk baris/blok ini,
+        // tampilkan jumlah pohon aktual agar header tidak kosong ('-').
+        final src = pohonData ?? const <Pohon>[];
+        int count = 0;
+        for (final tree in src) {
+          final tb = tree.blok.trim().toLowerCase();
+          final tr = _toRowNum(tree.nbaris);
+          if (tb == targetBlok && tr == targetBaris) {
+            count++;
+          }
+        }
+        hasil[p] = count > 0 ? '$count/$count' : '-';
       }
     }
 
@@ -312,7 +339,12 @@ class _PlantRepositionScreen extends State<PlantRepositionScreen> {
 
         //final blok = petugas?.blok;
         //final barisMap = hitungJumlahPerBaris(pohonData, barisTerpilih, sprList!);
-        final barisMap = hitungSPR(blok ?? '', barisTerpilih, sprList!);
+        final barisMap = hitungSPR(
+          blok ?? '',
+          barisTerpilih,
+          sprList!,
+          pohonData: pohonData,
+        );
 
         // 3. Hitung dimensi
         final barisKeys = grouped.keys.toList();

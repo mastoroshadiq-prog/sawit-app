@@ -62,4 +62,35 @@ class ApiPohon {
       };
     }
   }
+
+  static Future<Map<String, dynamic>> getPohonByBlok(String blokCode) async {
+    final url = Uri.parse(_buildReadUrl('blok.pohon.byblok', blokCode));
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List && data.isNotEmpty) {
+          return {
+            'success': true,
+            'data': data,
+          };
+        }
+        return {
+          'success': false,
+          'message': 'Data Pohon tidak ditemukan',
+        };
+      }
+
+      return {
+        'success': false,
+        'message': 'Server error: ${response.statusCode}',
+      };
+    } catch (_) {
+      return {
+        'success': false,
+        'message': 'Tidak dapat terhubung ke server',
+      };
+    }
+  }
 }

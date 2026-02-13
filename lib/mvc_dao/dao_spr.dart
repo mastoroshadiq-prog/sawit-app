@@ -44,6 +44,16 @@ class SPRDao {
     return result.map((e) => SPR.fromMap(e)).toList();
   }
 
+  Future<List<SPR>> getByBlok(String blok) async {
+    final db = await _dbHelper.database;
+    final result = await db.query(
+      'stand_per_row',
+      where: 'blok = ?',
+      whereArgs: [blok],
+    );
+    return result.map((e) => SPR.fromMap(e)).toList();
+  }
+
   Future<List<SPR>> getAllByFlagX() async {
     final db = await _dbHelper.database;
     final res = await db.query(

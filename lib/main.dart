@@ -9,6 +9,7 @@ import 'package:kebun_sawit/mvc_dao/dao_observasi_tambahan.dart';
 import 'package:kebun_sawit/mvc_dao/dao_reposisi.dart';
 import 'package:kebun_sawit/mvc_dao/dao_spr_log.dart';
 import 'package:kebun_sawit/mvc_dao/dao_task_execution.dart';
+import 'package:kebun_sawit/mvc_libs/active_block_store.dart';
 import 'package:kebun_sawit/mvc_libs/connection_utils.dart';
 import 'package:kebun_sawit/screens/scr_menu.dart';
 import 'package:kebun_sawit/screens/scr_option_acts.dart';
@@ -27,6 +28,7 @@ import 'screens/scr_sync_action.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await DBHelper().inisiasiDB();
+  await ActiveBlockStore.ensureLoaded();
   runApp(const SRPlantation());
 }
 
@@ -61,7 +63,12 @@ class SRPlantation extends StatelessWidget {
           final args = ModalRoute.of(context)!.settings.arguments as Map?;
           final username = args?['username'] as String?;
           final blok = args?['blok'] as String?;
-          return InitialSyncPage(username: username.toString(), blok: blok.toString());
+          final selectedBlok = args?['selectedBlok'] as String?;
+          return InitialSyncPage(
+            username: username.toString(),
+            blok: blok.toString(),
+            selectedBlok: selectedBlok,
+          );
         },
         '/assignments': (context) => const AssignmentListScreen(),
         '/kesehatan': (context) => const PlantHealthScreen(),
@@ -205,6 +212,57 @@ class _GlobalConnectivitySyncNotifierState extends State<GlobalConnectivitySyncN
 
   @override
   Widget build(BuildContext context) {
-    return widget.child;
+    return Stack(
+      children: [
+        widget.child,
+        ValueListenableBuilder<String?>(
+          valueListenable: ActiveBlockStore.notifier,
+          builder: (context, blockValue, _) {
+            final blok = (blockValue ?? '').trim();
+            final route = widget.routeObserver.currentRoute;
+            if (blok.isEmpty || route == '/' || route == '/initSync') {
+              return const SizedBox.shrink();
+            }
+
+            return Positioned(
+              top: 10,
+              right: 10,
+              child: IgnorePointer(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF114B3A).withValues(alpha: 0.92),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: const Color(0xFF8FCE00).withValues(alpha: 0.8)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x33000000),
+                        blurRadius: 8,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.grid_view_rounded, color: Color(0xFFB7F542), size: 14),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Blok Aktif: $blok',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
   }
 }

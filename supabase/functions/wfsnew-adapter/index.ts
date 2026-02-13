@@ -156,6 +156,60 @@ async function handleLegacyRead(
   const r = route.toLowerCase()
   diag('read.start', { route: r, q })
 
+  if (r === 'blok.list') {
+    // q: akun/kode_unik petugas
+    const kodeUnik = (q ?? '').trim()
+    if (kodeUnik.length === 0) return ok([])
+
+    const mapped = await supabase
+      .schema('apk')
+      .from('v_apk_petugas_blok')
+      .select('blok_code,nama_blok,estate,divisi')
+      .eq('kode_unik', kodeUnik)
+      .order('blok_code', { ascending: true })
+
+    if (mapped.error) {
+      return fail(`ERROR: ${mapped.error.message}`, 500)
+    }
+
+    if ((mapped.data?.length ?? 0) > 0) {
+      const payload = (mapped.data ?? []).map((x: Record<string, unknown>) => ({
+        blok: x.blok_code,
+        blok_name: x.nama_blok,
+        estate: x.estate,
+        divisi: x.divisi,
+      }))
+      return ok(payload)
+    }
+
+    // fallback: single blok dari profile petugas
+    const profile = await supabase
+      .schema('apk')
+      .from('v_apk_petugas')
+      .select('blok,divisi')
+      .eq('kode_unik', kodeUnik)
+      .limit(1)
+
+    if (profile.error) {
+      return fail(`ERROR: ${profile.error.message}`, 500)
+    }
+
+    const p = ((profile.data ?? [])[0] as Record<string, unknown> | undefined)
+    if (!p) return ok([])
+
+    const fallbackBlok = p['blok']?.toString() ?? ''
+    if (!fallbackBlok) return ok([])
+
+    return ok([
+      {
+        blok: fallbackBlok,
+        blok_name: fallbackBlok,
+        estate: '-',
+        divisi: p['divisi']?.toString() ?? '-',
+      },
+    ])
+  }
+
   if (r === 'autor') {
     const [username, password] = (q || '').split(',')
 
@@ -321,6 +375,43 @@ async function handleLegacyRead(
     }
 
     return ok(rows.filter((x) => (x['mandor']?.toString() ?? '') === winner).map((x) => mapTask(x)))
+  }
+
+  if (r === 'blok.pohon.byblok') {
+    const blockCode = (q ?? '').trim()
+    if (blockCode.length === 0) return ok([])
+
+    const byBlok = await supabase
+      .schema('apk')
+      .from('v_pohon_terkini')
+      .select('*')
+      .eq('blok', blockCode)
+
+    if (byBlok.error) return fail(`ERROR: ${byBlok.error.message}`, 500)
+    if ((byBlok.data?.length ?? 0) > 0) return ok(byBlok.data ?? [])
+
+    // fallback source kebun_n_pokok untuk transisi data
+    const raw = await supabase
+      .schema('dbo')
+      .from('kebun_n_pokok')
+      .select('catatan,n_baris,n_pokok,id_tanaman')
+      .eq('catatan', blockCode)
+
+    if (raw.error) return fail(`ERROR: ${raw.error.message}`, 500)
+
+    const mapped = (raw.data ?? []).map((x: Record<string, unknown>) => ({
+      blok: x.catatan,
+      nbaris: x.n_baris == null ? '' : String(x.n_baris),
+      npohon: x.n_pokok == null ? '' : String(x.n_pokok),
+      objectid: x.id_tanaman == null
+        ? `${String(x.catatan ?? '')}-${String(x.n_baris ?? '')}-${String(x.n_pokok ?? '')}`
+        : String(x.id_tanaman),
+      status: '1',
+      nflag: '0',
+      mandor: '-',
+    }))
+
+    return ok(mapped)
   }
 
   if (r === 'blok.pohon' || r === 'sim.pohon') {
