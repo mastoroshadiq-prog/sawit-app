@@ -99,6 +99,7 @@ class BatchDataCard extends StatelessWidget {
   final int observasiCount;
   final int auditlogCount;
   final int sprlogCount;
+  final int sopcheckCount;
   final Color secondary;
   final Color textColor;
 
@@ -111,6 +112,7 @@ class BatchDataCard extends StatelessWidget {
     required this.observasiCount,
     required this.auditlogCount,
     required this.sprlogCount,
+    required this.sopcheckCount,
     required this.secondary,
     required this.textColor,
   });
@@ -189,6 +191,13 @@ class BatchDataCard extends StatelessWidget {
             kind: BatchKind.auditlog,
             count: auditlogCount,
             state: states[BatchKind.auditlog] ?? BatchState.idle,
+            textColor: textColor,
+          ),
+          const SizedBox(height: 8),
+          BatchRow(
+            kind: BatchKind.sopcheck,
+            count: sopcheckCount,
+            state: states[BatchKind.sopcheck] ?? BatchState.idle,
             textColor: textColor,
           ),
         ],

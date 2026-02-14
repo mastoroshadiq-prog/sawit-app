@@ -49,6 +49,94 @@ function n(value: string | undefined): string | null {
   return v
 }
 
+function b(value: string | undefined): boolean {
+  const v = (value ?? '').trim().toLowerCase()
+  return v === '1' || v === 'true' || v === 't' || v === 'y' || v === 'yes'
+}
+
+function sopConflictByTarget(target: string): string | null {
+  switch (target.toUpperCase()) {
+    case 'ISOPM':
+      return 'sop_id'
+    case 'ISOPS':
+      return 'step_id'
+    case 'ITSM':
+      return 'map_id'
+    case 'ITSC':
+      return 'check_id'
+    default:
+      return null
+  }
+}
+
+function sopTableByTarget(target: string): string | null {
+  switch (target.toUpperCase()) {
+    case 'ISOPM':
+      return 'sop_master'
+    case 'ISOPS':
+      return 'sop_step'
+    case 'ITSM':
+      return 'task_sop_map'
+    case 'ITSC':
+      return 'task_sop_check'
+    default:
+      return null
+  }
+}
+
+function sopRowByTarget(target: string, paramRaw: string): Record<string, unknown> {
+  const p = splitParams(paramRaw)
+  switch (target.toUpperCase()) {
+    case 'ISOPM':
+      return {
+        sop_id: n(p[0]),
+        sop_code: n(p[1]),
+        sop_name: n(p[2]),
+        sop_version: n(p[3]) ?? '1.0',
+        task_keyword: n(p[4]) ?? '',
+        is_active: b(p[5]),
+        updated_at: n(p[6]) ?? new Date().toISOString(),
+      }
+    case 'ISOPS':
+      return {
+        step_id: n(p[0]),
+        sop_id: n(p[1]),
+        step_order: Number(n(p[2]) ?? '0'),
+        step_title: n(p[3]),
+        is_required: b(p[4]),
+        evidence_type: n(p[5]) ?? 'none',
+        is_active: b(p[6]),
+        updated_at: n(p[7]) ?? new Date().toISOString(),
+      }
+    case 'ITSM':
+      return {
+        map_id: n(p[0]),
+        sop_id: n(p[1]),
+        assignment_id: n(p[2]),
+        spk_number: n(p[3]),
+        source_type: n(p[4]) ?? 'server',
+        is_active: b(p[5]),
+        updated_at: n(p[6]) ?? new Date().toISOString(),
+      }
+    case 'ITSC':
+      return {
+        check_id: n(p[0]),
+        execution_id: n(p[1]),
+        assignment_id: n(p[2]),
+        spk_number: n(p[3]),
+        sop_id: n(p[4]),
+        step_id: n(p[5]),
+        is_checked: Number(n(p[6]) ?? '0'),
+        note: n(p[7]),
+        evidence_path: n(p[8]),
+        checked_at: n(p[9]) ?? new Date().toISOString(),
+        flag: Number(n(p[10]) ?? '1'),
+      }
+    default:
+      throw new Error(`TARGET SOP tidak dikenali: ${target}`)
+  }
+}
+
 function tableByTarget(target: string): string | null {
   switch (target.toUpperCase()) {
     case 'ITE':
@@ -318,13 +406,13 @@ async function handleLegacyRead(
     for (const row of (peers.data ?? []) as Array<Record<string, unknown>>) {
       const kode = row['kode_unik']?.toString() ?? ''
       const tipe = row['tipe']?.toString().toUpperCase() ?? ''
-      if (kode.isEmpty) continue
-      if (tipe == 'MANDOR' || tipe.isEmpty) {
+      if (kode.length === 0) continue
+      if (tipe == 'MANDOR' || tipe.length === 0) {
         candidates.add(kode)
       }
     }
 
-    if (candidates.isEmpty) return ok([])
+    if (candidates.size === 0) return ok([])
 
     const peerTasks = await supabase
       .schema('dbo')
@@ -375,6 +463,86 @@ async function handleLegacyRead(
     }
 
     return ok(rows.filter((x) => (x['mandor']?.toString() ?? '') === winner).map((x) => mapTask(x)))
+  }
+
+  if (r === 'apk.sop.master') {
+    const onlyActive = (q ?? '').trim().toLowerCase() !== 'all'
+    let query = supabase
+      .from('sop_master')
+      .select('sop_id,sop_code,sop_name,sop_version,task_keyword,is_active,updated_at')
+      .order('sop_code', { ascending: true })
+
+    if (onlyActive) {
+      query = query.eq('is_active', true)
+    }
+
+    const { data, error } = await query
+    if (error) return fail(`ERROR: ${error.message}`, 500)
+
+    const mapped = (data ?? []).map((x: Record<string, unknown>) => ({
+      sopId: x.sop_id,
+      sopCode: x.sop_code,
+      sopName: x.sop_name,
+      sopVersion: x.sop_version,
+      taskKeyword: x.task_keyword,
+      isActive: x.is_active === true ? 1 : 0,
+      updatedAt: x.updated_at,
+    }))
+    return ok(mapped)
+  }
+
+  if (r === 'apk.sop.steps') {
+    const sopId = (q ?? '').trim()
+    let query = supabase
+      .from('sop_step')
+      .select('step_id,sop_id,step_order,step_title,is_required,evidence_type,is_active,updated_at')
+      .order('step_order', { ascending: true })
+
+    if (sopId.length > 0) {
+      query = query.eq('sop_id', sopId)
+    }
+
+    const { data, error } = await query
+    if (error) return fail(`ERROR: ${error.message}`, 500)
+
+    const mapped = (data ?? []).map((x: Record<string, unknown>) => ({
+      stepId: x.step_id,
+      sopId: x.sop_id,
+      stepOrder: x.step_order,
+      stepTitle: x.step_title,
+      isRequired: x.is_required === true ? 1 : 0,
+      evidenceType: x.evidence_type,
+      isActive: x.is_active === true ? 1 : 0,
+      updatedAt: x.updated_at,
+    }))
+    return ok(mapped)
+  }
+
+  if (r === 'apk.sop.map') {
+    const spk = (q ?? '').trim()
+    let query = supabase
+      .from('task_sop_map')
+      .select('map_id,sop_id,assignment_id,spk_number,source_type,is_active,updated_at')
+      .eq('is_active', true)
+      .order('updated_at', { ascending: false })
+
+    if (spk.length > 0) {
+      query = query.eq('spk_number', spk)
+    }
+
+    const { data, error } = await query
+    if (error) return fail(`ERROR: ${error.message}`, 500)
+
+    const mapped = (data ?? []).map((x: Record<string, unknown>) => ({
+      mapId: x.map_id,
+      sopId: x.sop_id,
+      assignmentId: x.assignment_id,
+      spkNumber: x.spk_number,
+      sourceType: x.source_type,
+      isActive: x.is_active === true ? 1 : 0,
+      updatedAt: x.updated_at,
+    }))
+    return ok(mapped)
   }
 
   if (r === 'blok.pohon.byblok') {
@@ -560,6 +728,20 @@ async function handleLegacySync(
 
     if (NOOP_TARGETS.has(target)) {
       // Legacy compatibility: beberapa payload hanya marker/update lama.
+      continue
+    }
+
+    // Extension Tahap 2: SOP + checklist execution
+    const sopTable = sopTableByTarget(target)
+    if (sopTable) {
+      const row = sopRowByTarget(target, item.PARAMS ?? '')
+      const onConflict = sopConflictByTarget(target)
+      if (!onConflict) return fail(`ERROR: onConflict TARGET SOP tidak ditemukan (${item.TARGET})`, 400)
+
+      const { error } = await supabase.from(sopTable).upsert(row, { onConflict })
+      if (error) {
+        return fail(`ERROR: ${error.message}`, 500)
+      }
       continue
     }
 

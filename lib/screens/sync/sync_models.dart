@@ -1,7 +1,7 @@
 // lib/screens/sync/sync_models.dart
 
 /// Jenis batch data yang akan disinkronkan
-enum BatchKind { tugas, kesehatan, reposisi, observasi, auditlog, sprlog }
+enum BatchKind { tugas, kesehatan, reposisi, observasi, auditlog, sprlog, sopcheck }
 
 /// State dari setiap batch data
 enum BatchState { idle, fetching, ready, sending, success, failed }
@@ -32,6 +32,8 @@ extension BatchKindExtension on BatchKind {
         return "Audit Log";
       case BatchKind.sprlog:
         return "Stand_Per_Row Log";
+      case BatchKind.sopcheck:
+        return "Checklist SOP";
     }
   }
 }

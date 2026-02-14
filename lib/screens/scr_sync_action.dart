@@ -9,6 +9,7 @@ import 'package:kebun_sawit/mvc_dao/dao_kesehatan.dart';
 import 'package:kebun_sawit/mvc_dao/dao_observasi_tambahan.dart';
 import 'package:kebun_sawit/mvc_dao/dao_reposisi.dart';
 import 'package:kebun_sawit/mvc_dao/dao_spr_log.dart';
+import 'package:kebun_sawit/mvc_dao/dao_sop.dart';
 import 'package:kebun_sawit/mvc_dao/dao_task_execution.dart';
 import '../../mvc_libs/connection_utils.dart';
 import 'sync/sync_models.dart';
@@ -66,6 +67,7 @@ class _SyncPageState extends State<SyncPage> {
   List<List<Map<String, dynamic>>> batchObservasi = [];
   List<List<Map<String, dynamic>>> batchSPRlog = [];
   List<List<Map<String, dynamic>>> batchAuditlog = [];
+  List<List<Map<String, dynamic>>> batchSopCheck = [];
 
   // State per batch
   Map<BatchKind, BatchState> states = {
@@ -75,6 +77,7 @@ class _SyncPageState extends State<SyncPage> {
     BatchKind.observasi: BatchState.idle,
     BatchKind.auditlog: BatchState.idle,
     BatchKind.sprlog: BatchState.idle,
+    BatchKind.sopcheck: BatchState.idle,
   };
 
   // Messages per batch after send
@@ -85,6 +88,7 @@ class _SyncPageState extends State<SyncPage> {
     BatchKind.observasi: "",
     BatchKind.auditlog: "",
     BatchKind.sprlog: "",
+    BatchKind.sopcheck: "",
   };
 
   // Progress tracking
@@ -128,10 +132,11 @@ class _SyncPageState extends State<SyncPage> {
     final observasi = (await ObservasiTambahanDao().getAllZeroObservasi()).isNotEmpty;
     final spr = (await SPRLogDao().getAllZeroSPRLog()).isNotEmpty;
     final audit = (await AuditLogDao().getAllZeroAuditLog()).isNotEmpty;
+    final sopcheck = (await SopDao().countUnsyncedChecks()) > 0;
 
     if (!mounted) return;
     setState(() {
-      _hasPendingSyncInDb = tugas || kesehatan || reposisi || observasi || spr || audit;
+      _hasPendingSyncInDb = tugas || kesehatan || reposisi || observasi || spr || audit || sopcheck;
       _checkingPendingState = false;
     });
   }
@@ -181,7 +186,8 @@ class _SyncPageState extends State<SyncPage> {
         batchReposisi.isNotEmpty ||
         batchObservasi.isNotEmpty ||
         batchSPRlog.isNotEmpty ||
-        batchAuditlog.isNotEmpty;
+        batchAuditlog.isNotEmpty ||
+        batchSopCheck.isNotEmpty;
   }
 
   int _countBatchItems(List<List<Map<String, dynamic>>> batches) {
@@ -305,6 +311,18 @@ class _SyncPageState extends State<SyncPage> {
     setState(() {
       batchAuditlog = auditlog;
       states[BatchKind.auditlog] = BatchState.ready;
+      fetchProgress = 6 / 7;
+    });
+
+    // 7/7 - SOP checklist
+    setState(() {
+      states[BatchKind.sopcheck] = BatchState.fetching;
+      fetchLabel = "Mengumpulkan Data â€” Checklist SOP";
+    });
+    final sopcheck = await _syncService.fetchSopCheckBatchX();
+    setState(() {
+      batchSopCheck = sopcheck;
+      states[BatchKind.sopcheck] = BatchState.ready;
       fetchProgress = 1.0;
     });
 
@@ -330,6 +348,7 @@ class _SyncPageState extends State<SyncPage> {
       batchObservasi,
       batchSPRlog,
       batchAuditlog,
+      batchSopCheck,
     ];
     final hasAnyData = pendingGroups.any((x) => x.isNotEmpty);
     if (!hasAnyData) {
@@ -361,6 +380,7 @@ class _SyncPageState extends State<SyncPage> {
       _BatchTask(BatchKind.observasi, "Observasi Tambahan", batchObservasi),
       _BatchTask(BatchKind.sprlog, "Stand Per Row", batchSPRlog),
       _BatchTask(BatchKind.auditlog, "Audit Log", batchAuditlog),
+      _BatchTask(BatchKind.sopcheck, "Checklist SOP", batchSopCheck),
     ];
 
     // Hitung total kategori yang memiliki data untuk progress bar
@@ -690,6 +710,7 @@ class _SyncPageState extends State<SyncPage> {
       batchObservasi.clear();
       batchSPRlog.clear();
       batchAuditlog.clear();
+      batchSopCheck.clear();
     });
     _autoFetchAllBatches().then((_) => _refreshPendingDbState());
   }
@@ -792,6 +813,7 @@ class _SyncPageState extends State<SyncPage> {
                observasiCount: _countBatchItems(batchObservasi),
                auditlogCount: _countBatchItems(batchAuditlog),
                sprlogCount: _countBatchItems(batchSPRlog),
+               sopcheckCount: _countBatchItems(batchSopCheck),
                secondary: secondary,
                textColor: textColor,
              ),
@@ -833,7 +855,8 @@ class _SyncPageState extends State<SyncPage> {
             batchReposisi.isNotEmpty ||
             batchObservasi.isNotEmpty ||
             batchSPRlog.isNotEmpty ||
-            batchAuditlog.isNotEmpty) &&
+            batchAuditlog.isNotEmpty ||
+            batchSopCheck.isNotEmpty) &&
         !isSending;
 
     return Column(
@@ -911,6 +934,13 @@ class _SyncPageState extends State<SyncPage> {
               kind: BatchKind.auditlog,
               message: resultMessages[BatchKind.auditlog] ?? "",
               state: states[BatchKind.auditlog] ?? BatchState.idle,
+              successColor: successColor,
+            ),
+            const SizedBox(height: 8),
+            BatchResultPanel(
+              kind: BatchKind.sopcheck,
+              message: resultMessages[BatchKind.sopcheck] ?? "",
+              state: states[BatchKind.sopcheck] ?? BatchState.idle,
               successColor: successColor,
             ),
           ],

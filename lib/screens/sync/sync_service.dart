@@ -9,11 +9,13 @@ import '../../mvc_dao/dao_task_execution.dart';
 import '../../mvc_dao/dao_kesehatan.dart';
 import '../../mvc_dao/dao_reposisi.dart';
 import '../../mvc_dao/dao_observasi_tambahan.dart';
+import '../../mvc_dao/dao_sop.dart';
 import '../../mvc_models/audit_log.dart';
 import '../../mvc_models/execution.dart';
 import '../../mvc_models/kesehatan.dart';
 import '../../mvc_models/reposisi.dart';
 import '../../mvc_models/observasi_tambahan.dart';
+import '../../mvc_models/task_sop_check.dart';
 import '../../mvc_libs/connection_utils.dart';
 import '../../config/sync_source_config.dart';
 import 'sync_models.dart';
@@ -300,6 +302,30 @@ class SyncService {
     return allBatchData;
   }
 
+  Future<List<List<Map<String, dynamic>>>> fetchSopCheckBatchX() async {
+    await Future.delayed(const Duration(milliseconds: 600));
+
+    List<TaskSopCheck> checks = await SopDao().getAllZeroChecks();
+    List<List<Map<String, dynamic>>> allBatchData = [];
+    const int batchSize = 10;
+
+    for (int i = 0; i < checks.length; i += batchSize) {
+      final end = (i + batchSize < checks.length) ? i + batchSize : checks.length;
+      final batch = checks.sublist(i, end).map((c) {
+        final checkedAtTrimmed =
+            c.checkedAt.length >= 23 ? c.checkedAt.substring(0, 23) : c.checkedAt;
+        return {
+          'TARGET': 'ITSC',
+          'PARAMS':
+              '${c.checkId},${c.executionId},${c.assignmentId},${c.spkNumber},${c.sopId},${c.stepId},${c.isChecked},${c.note},${c.evidencePath ?? ''},$checkedAtTrimmed,${c.flag}',
+        };
+      }).toList();
+      allBatchData.add(batch);
+    }
+
+    return allBatchData;
+  }
+
   /// Fetch data audit log dari SQLite
   Future<List<Map<String, dynamic>>> fetchAuditLogFromSqlite() async {
     await Future.delayed(const Duration(milliseconds: 700));
@@ -489,6 +515,14 @@ class SyncService {
         for (var map in items) {
           final id = map['PARAMS'].toString().split(',')[0];
           await SPRLogDao().updateFlag(id);
+        }
+        break;
+
+      case BatchKind.sopcheck:
+        await AuditLogDao().createLog("SYNC_DATA", status);
+        for (var map in items) {
+          final id = map['PARAMS'].toString().split(',')[0];
+          await SopDao().updateCheckFlag(id, 1);
         }
         break;
     }

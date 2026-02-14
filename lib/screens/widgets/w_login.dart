@@ -10,6 +10,7 @@ import '../../mvc_dao/dao_spr.dart';
 import '../../mvc_models/petugas.dart';
 import '../../mvc_dao/dao_petugas.dart';
 import '../../mvc_libs/active_block_store.dart';
+import '../../mvc_services/sop_sync_service.dart';
 import 'w_general.dart';
 
 Container contLatarBelakang() {
@@ -166,6 +167,8 @@ Widget tombolLogin(
   TextEditingController usernameController,
   TextEditingController passwordController,
 ) {
+  final sopSyncService = SopSyncService();
+
   Future<bool> isLocalMasterReadyForBlok(String blok) async {
     final block = blok.trim();
     if (block.isEmpty) return false;
@@ -257,6 +260,8 @@ Widget tombolLogin(
                     if (hasil > 0) {
                       final selectedBlok = petugas.blok.trim();
                       await ActiveBlockStore.set(selectedBlok);
+
+                      await sopSyncService.pullFromServerSafe();
 
                       final isLocalReady =
                           await isLocalMasterReadyForBlok(selectedBlok);

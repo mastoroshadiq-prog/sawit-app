@@ -1,0 +1,3 @@
+Excel rows (clean): 3182
+Rows after dedup: 3182
+Inserted rows to dbo.kebun_n_pokok for D002A: 3182

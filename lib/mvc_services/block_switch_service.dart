@@ -6,6 +6,7 @@ import 'package:kebun_sawit/mvc_dao/dao_pohon.dart';
 import 'package:kebun_sawit/mvc_dao/dao_reposisi.dart';
 import 'package:kebun_sawit/mvc_dao/dao_spr.dart';
 import 'package:kebun_sawit/mvc_dao/dao_spr_log.dart';
+import 'package:kebun_sawit/mvc_dao/dao_sop.dart';
 import 'package:kebun_sawit/mvc_dao/dao_task_execution.dart';
 import 'package:kebun_sawit/mvc_libs/active_block_store.dart';
 import 'package:kebun_sawit/mvc_libs/connection_utils.dart';
@@ -36,7 +37,8 @@ class BlockSwitchService {
     final observasi = (await ObservasiTambahanDao().getAllZeroObservasi()).isNotEmpty;
     final spr = (await SPRLogDao().getAllZeroSPRLog()).isNotEmpty;
     final audit = (await AuditLogDao().getAllZeroAuditLog()).isNotEmpty;
-    return tugas || kesehatan || reposisi || observasi || spr || audit;
+    final sopcheck = (await SopDao().countUnsyncedChecks()) > 0;
+    return tugas || kesehatan || reposisi || observasi || spr || audit || sopcheck;
   }
 
   Future<BlockSwitchResult> _syncPendingDataToServer() async {
@@ -54,6 +56,7 @@ class BlockSwitchService {
     final batchObservasi = await _syncService.fetchObservasiBatchX();
     final batchSprLog = await _syncService.fetchSPRBatch();
     final batchAudit = await _syncService.fetchAuditLogBatchX();
+    final batchSopCheck = await _syncService.fetchSopCheckBatchX();
 
     final tasks = <({BatchKind kind, String label, List<List<Map<String, dynamic>>> data})>[
       (kind: BatchKind.tugas, label: 'Status Tugas', data: batchTugas),
@@ -62,6 +65,7 @@ class BlockSwitchService {
       (kind: BatchKind.observasi, label: 'Observasi Tambahan', data: batchObservasi),
       (kind: BatchKind.sprlog, label: 'Stand Per Row', data: batchSprLog),
       (kind: BatchKind.auditlog, label: 'Audit Log', data: batchAudit),
+      (kind: BatchKind.sopcheck, label: 'Checklist SOP', data: batchSopCheck),
     ];
 
     final hasAny = tasks.any((t) => t.data.isNotEmpty);

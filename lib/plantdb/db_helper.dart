@@ -69,6 +69,9 @@ class DBHelper {
     await db.execute(
       "UPDATE reposisi SET createdAt = datetime('now') WHERE createdAt IS NULL OR createdAt = ''",
     );
+
+    await _ensureSopTables(db);
+    await _ensureSopSeed(db);
   }
 
   Future _onCreate(Database db, int version) async {
@@ -219,6 +222,10 @@ class DBHelper {
         flag INTEGER
       )
     ''');
+
+    await _ensureSopTables(db);
+    await _ensureSopSeed(db);
+
     debugPrint("VIEW TABLE CREATION STARTED");
     await db.execute('''
         CREATE VIEW v_reporting AS
@@ -238,6 +245,135 @@ class DBHelper {
     ''');
 
     debugPrint("DATABASE & TABLES CREATED");
+  }
+
+  Future<void> _ensureSopTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sop_master (
+        sopId TEXT PRIMARY KEY,
+        sopCode TEXT,
+        sopName TEXT,
+        sopVersion TEXT,
+        isActive INTEGER,
+        taskKeyword TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sop_step (
+        stepId TEXT PRIMARY KEY,
+        sopId TEXT,
+        stepOrder INTEGER,
+        stepTitle TEXT,
+        isRequired INTEGER,
+        evidenceType TEXT,
+        FOREIGN KEY (sopId) REFERENCES sop_master(sopId)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS task_sop_map (
+        mapId TEXT PRIMARY KEY,
+        assignmentId TEXT,
+        spkNumber TEXT,
+        sopId TEXT,
+        sourceType TEXT,
+        FOREIGN KEY (sopId) REFERENCES sop_master(sopId)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS task_sop_check (
+        checkId TEXT PRIMARY KEY,
+        executionId TEXT,
+        assignmentId TEXT,
+        spkNumber TEXT,
+        sopId TEXT,
+        stepId TEXT,
+        isChecked INTEGER,
+        note TEXT,
+        evidencePath TEXT,
+        checkedAt TEXT,
+        flag INTEGER,
+        FOREIGN KEY (sopId) REFERENCES sop_master(sopId),
+        FOREIGN KEY (stepId) REFERENCES sop_step(stepId)
+      )
+    ''');
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sop_step_sop ON sop_step(sopId, stepOrder)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_task_sop_map_spk ON task_sop_map(spkNumber)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_task_sop_check_exec ON task_sop_check(executionId, stepId)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_task_sop_check_assign ON task_sop_check(assignmentId, stepId)',
+    );
+  }
+
+  Future<void> _ensureSopSeed(Database db) async {
+    final existing = await db.rawQuery('SELECT COUNT(*) as c FROM sop_master');
+    final count = Sqflite.firstIntValue(existing) ?? 0;
+    if (count > 0) return;
+
+    await db.insert('sop_master', {
+      'sopId': 'SOP-GENERAL-TASK',
+      'sopCode': 'SOP-GEN-001',
+      'sopName': 'SOP Umum Pengerjaan Task Lapangan',
+      'sopVersion': '1.0',
+      'isActive': 1,
+      'taskKeyword': 'TASK',
+    });
+
+    final steps = [
+      {
+        'stepId': 'SOP-GEN-STEP-01',
+        'sopId': 'SOP-GENERAL-TASK',
+        'stepOrder': 1,
+        'stepTitle': 'Verifikasi lokasi kerja (blok/baris/pohon)',
+        'isRequired': 1,
+        'evidenceType': 'none',
+      },
+      {
+        'stepId': 'SOP-GEN-STEP-02',
+        'sopId': 'SOP-GENERAL-TASK',
+        'stepOrder': 2,
+        'stepTitle': 'Pastikan APD dan keselamatan kerja terpenuhi',
+        'isRequired': 1,
+        'evidenceType': 'none',
+      },
+      {
+        'stepId': 'SOP-GEN-STEP-03',
+        'sopId': 'SOP-GENERAL-TASK',
+        'stepOrder': 3,
+        'stepTitle': 'Laksanakan tindakan sesuai instruksi SPK',
+        'isRequired': 1,
+        'evidenceType': 'none',
+      },
+      {
+        'stepId': 'SOP-GEN-STEP-04',
+        'sopId': 'SOP-GENERAL-TASK',
+        'stepOrder': 4,
+        'stepTitle': 'Ambil dokumentasi hasil pekerjaan',
+        'isRequired': 1,
+        'evidenceType': 'photo',
+      },
+      {
+        'stepId': 'SOP-GEN-STEP-05',
+        'sopId': 'SOP-GENERAL-TASK',
+        'stepOrder': 5,
+        'stepTitle': 'Catat temuan penting jika ada',
+        'isRequired': 0,
+        'evidenceType': 'note',
+      },
+    ];
+
+    for (final step in steps) {
+      await db.insert('sop_step', step);
+    }
   }
 
   Future<void> cleanDatabaseAfterLogin() async {

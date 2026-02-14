@@ -6,6 +6,7 @@ import 'package:kebun_sawit/mvc_dao/dao_kesehatan.dart';
 import 'package:kebun_sawit/mvc_dao/dao_observasi_tambahan.dart';
 import 'package:kebun_sawit/mvc_dao/dao_reposisi.dart';
 import 'package:kebun_sawit/mvc_dao/dao_spr_log.dart';
+import 'package:kebun_sawit/mvc_dao/dao_sop.dart';
 import 'package:kebun_sawit/mvc_dao/dao_task_execution.dart';
 import 'package:kebun_sawit/mvc_dao/dao_audit_log.dart';
 import 'package:kebun_sawit/mvc_libs/active_block_store.dart';
@@ -382,7 +383,8 @@ class _MenuScreen extends State<MenuScreen> {
     final observasi = (await ObservasiTambahanDao().getAllZeroObservasi()).isNotEmpty;
     final spr = (await SPRLogDao().getAllZeroSPRLog()).isNotEmpty;
     final audit = (await AuditLogDao().getAllZeroAuditLog()).isNotEmpty;
-    return tugas || kesehatan || reposisi || observasi || spr || audit;
+    final sopcheck = (await SopDao().countUnsyncedChecks()) > 0;
+    return tugas || kesehatan || reposisi || observasi || spr || audit || sopcheck;
   }
 
   Future<void> _handleSignOut() async {

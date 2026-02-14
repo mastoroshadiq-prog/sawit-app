@@ -16,6 +16,7 @@ import '../../mvc_services/api_pohon.dart';
 import '../../mvc_services/api_spk.dart';
 import '../../mvc_models/assignment.dart';
 import '../../mvc_models/pohon.dart';
+import '../../mvc_services/sop_sync_service.dart';
 import '../mvc_dao/dao_spr.dart';
 import '../mvc_models/spr.dart';
 
@@ -180,6 +181,7 @@ class InitialSyncPage extends StatefulWidget {
 }
 
 class _InitialSyncPageState extends State<InitialSyncPage> {
+  final SopSyncService _sopSyncService = SopSyncService();
   double progress = 0.0;
   String currentStep = "";
   bool isSyncing = false;
@@ -674,6 +676,11 @@ class _InitialSyncPageState extends State<InitialSyncPage> {
 
     final inserted = await AssignmentDao().insertAssignmentsBatch(assignments);
     if (inserted <= 0) throw Exception("Insert SPK gagal");
+
+    await _sopSyncService.pullFromServerSafe(
+      spkNumbers: assignments.map((e) => e.spkNumber).toSet(),
+    );
+
     return assignments.length;
   }
 
