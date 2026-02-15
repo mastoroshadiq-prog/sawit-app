@@ -438,7 +438,7 @@ class _PlantRepositionScreen extends State<PlantRepositionScreen> {
                       onChanged: (ReposisiResult result) {
                         setState(() {
                           // trigger rebuild
-                          pohonFuture = PohonDao().getAllPohon();
+                          pohonFuture = PohonDao().getAllPohonByBlok(blok ?? '');
 
                           //print("REFRESH REPOSISI $currentRow");
                           //print("ID Tanaman : ${result.idTanaman}");
@@ -455,6 +455,18 @@ class _PlantRepositionScreen extends State<PlantRepositionScreen> {
                             result.pohonIndex,
                           );
                         });
+
+                        final info = result.message.isNotEmpty
+                            ? result.message
+                            : 'Pohon ${result.pohonAwal} di baris ${result.barisAwal} telah berhasil ditandai.';
+                        ScaffoldMessenger.of(context)
+                          ..hideCurrentSnackBar()
+                          ..showSnackBar(
+                            SnackBar(
+                              content: Text(info),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
                       }, // Onchanged
                     ), // BuildHexagonalTreeGrid
                   ],

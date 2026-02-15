@@ -13,7 +13,9 @@ import 'package:kebun_sawit/mvc_libs/active_block_store.dart';
 import 'package:kebun_sawit/mvc_services/api_blok.dart';
 import 'package:kebun_sawit/mvc_services/block_switch_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:kebun_sawit/screens/scr_observasi_drilldown.dart';
 import 'package:kebun_sawit/screens/scr_reposisi_drilldown.dart';
+import 'package:kebun_sawit/screens/scr_task_pending_drilldown.dart';
 import '../mvc_libs/pdf_preview.dart';
 import '../screens/widgets/w_general.dart';
 
@@ -176,7 +178,8 @@ class _MenuScreen extends State<MenuScreen> {
   }
 
   Future<_FieldSummary> _loadFieldSummary() async {
-    final tugasPending = (await TaskExecutionDao().getAllTaskExecByFlag()).length;
+    final tugasPending = await TaskExecutionDao().countPendingTaskExec();
+    final tugasDone = await TaskExecutionDao().countDoneTaskExec();
     final kesehatanPending = (await KesehatanDao().getAllZeroKesehatan()).length;
     final reposisiPending = (await ReposisiDao().getAllZeroReposisi()).length;
     final observasiPending =
@@ -184,6 +187,7 @@ class _MenuScreen extends State<MenuScreen> {
 
     return _FieldSummary(
       tugasPending: tugasPending,
+      tugasDone: tugasDone,
       kesehatanPending: kesehatanPending,
       reposisiPending: reposisiPending,
       observasiPending: observasiPending,
@@ -622,14 +626,32 @@ class _MenuScreen extends State<MenuScreen> {
                               label: 'Task Pending',
                               value: s.tugasPending,
                               color: const Color(0xFF4E7FA8),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const TaskPendingDrilldownScreen(),
+                                  ),
+                                );
+                              },
                             ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: _statusChip(
-                              label: 'Kesehatan',
-                              value: s.kesehatanPending,
+                              label: 'Task Done',
+                              value: s.tugasDone,
                               color: const Color(0xFF3C8D7A),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const TaskPendingDrilldownScreen(
+                                      showDone: true,
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           ),
                         ],
@@ -637,6 +659,14 @@ class _MenuScreen extends State<MenuScreen> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
+                          Expanded(
+                            child: _statusChip(
+                              label: 'Kesehatan',
+                              value: s.kesehatanPending,
+                              color: const Color(0xFF5A8F63),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: _statusChip(
                               label: 'Reposisi',
@@ -652,15 +682,21 @@ class _MenuScreen extends State<MenuScreen> {
                               },
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _statusChip(
-                              label: 'Observasi',
-                              value: s.observasiPending,
-                              color: const Color(0xFFB06E3D),
-                            ),
-                          ),
                         ],
+                      ),
+                      const SizedBox(height: 8),
+                      _statusChip(
+                        label: 'Observasi',
+                        value: s.observasiPending,
+                        color: const Color(0xFFB06E3D),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ObservasiDrilldownScreen(),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -891,12 +927,14 @@ class _MenuScreen extends State<MenuScreen> {
 
 class _FieldSummary {
   final int tugasPending;
+  final int tugasDone;
   final int kesehatanPending;
   final int reposisiPending;
   final int observasiPending;
 
   const _FieldSummary({
     required this.tugasPending,
+    required this.tugasDone,
     required this.kesehatanPending,
     required this.reposisiPending,
     required this.observasiPending,

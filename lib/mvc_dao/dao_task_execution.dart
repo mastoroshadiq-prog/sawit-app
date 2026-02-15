@@ -64,6 +64,42 @@ class TaskExecutionDao {
     return res.map((e) => TaskExecution.fromMap(e)).toList();
   }
 
+  Future<List<TaskExecution>> getPendingTaskExec() async {
+    final db = await dbHelper.database;
+    final res = await db.query(
+      'eksekusi',
+      where: 'flag = 0 AND TRIM(UPPER(taskState)) <> ?',
+      whereArgs: ['SELESAI'],
+    );
+    return res.map((e) => TaskExecution.fromMap(e)).toList();
+  }
+
+  Future<List<TaskExecution>> getDoneTaskExec() async {
+    final db = await dbHelper.database;
+    final res = await db.query(
+      'eksekusi',
+      where: 'TRIM(UPPER(taskState)) = ?',
+      whereArgs: ['SELESAI'],
+    );
+    return res.map((e) => TaskExecution.fromMap(e)).toList();
+  }
+
+  Future<int> countPendingTaskExec() async {
+    final db = await dbHelper.database;
+    final res = await db.rawQuery(
+      "SELECT COUNT(*) AS total FROM eksekusi WHERE flag = 0 AND TRIM(UPPER(taskState)) <> 'SELESAI'",
+    );
+    return Sqflite.firstIntValue(res) ?? 0;
+  }
+
+  Future<int> countDoneTaskExec() async {
+    final db = await dbHelper.database;
+    final res = await db.rawQuery(
+      "SELECT COUNT(*) AS total FROM eksekusi WHERE TRIM(UPPER(taskState)) = 'SELESAI'",
+    );
+    return Sqflite.firstIntValue(res) ?? 0;
+  }
+
   Future<TaskExecution?> getTaskExecById(String id) async {
     final db = await dbHelper.database;
     final res = await db.query('eksekusi', where: 'id = ?', whereArgs: [id]);

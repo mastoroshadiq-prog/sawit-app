@@ -23,6 +23,7 @@ Future<ReposisiResult?> showPopup(
   Pohon pohon,
   String petugas,
   int pohonIndex, {
+  required int displayTreeNumber,
   bool? isVirtual,
 }) {
   return showDialog<ReposisiResult>(
@@ -32,6 +33,7 @@ Future<ReposisiResult?> showPopup(
       pohon,
       petugas,
       pohonIndex,
+      displayTreeNumber: displayTreeNumber,
       isVirtual: isVirtual,
     ),
   );
@@ -76,6 +78,7 @@ AlertDialog _buildPopupDialog(
   Pohon pohon,
   String petugas,
   int pohonIndex, {
+  required int displayTreeNumber,
   bool? isVirtual,
 }) {
   final screenWidth = MediaQuery.of(context).size.width;
@@ -88,7 +91,7 @@ AlertDialog _buildPopupDialog(
     title: Column(
       children: [
         _buildPopupTitle(
-          pohon.npohon,
+          displayTreeNumber.toString(),
           pohon.nbaris,
           pohon.status,
           pohon.objectId,
@@ -104,6 +107,7 @@ AlertDialog _buildPopupDialog(
         pohon,
         petugas,
         pohonIndex,
+        displayTreeNumber: displayTreeNumber,
         isVirtual: isVirtual,
       ),
     ),
@@ -145,6 +149,7 @@ SingleChildScrollView _buildPopupContent(
   Pohon pohon,
   String petugas,
   int pohonIndex, {
+  required int displayTreeNumber,
   bool? isVirtual,
 }) {
   final presetStore = _PopupPresetStore();
@@ -457,6 +462,7 @@ SingleChildScrollView _buildPopupContent(
                       petugas,
                       primaryOption.isVirtual,
                       attributeLabels: combinedLabels,
+                      displayPohon: displayTreeNumber.toString(),
                     );
 
                     unawaited(
@@ -707,6 +713,7 @@ Future<ReposisiResult> _syncPlantReposition(
   String observasiNote = '',
   bool simpanObservasi = false,
   List<String> attributeLabels = const <String>[],
+  String? displayPohon,
   }
 ) async {
   String pohonTujuan =
@@ -891,6 +898,7 @@ Future<ReposisiResult> _syncPlantReposition(
         nFlag,
         pohonAwal,
         barisAwal,
+        blok,
       );
     }
     //print("Berhasil : Tutup Pop UP");
@@ -908,7 +916,8 @@ Future<ReposisiResult> _syncPlantReposition(
   return ReposisiResult(
     idReposisi: generatedReposisiId,
     idTanaman: idTanaman,
-    message: '',
+    message:
+        'Pohon ${displayPohon ?? pohonAwal} di baris $barisAwal telah berhasil ditandai.',
     flag: nFlag,
     barisAwal: barisAwal,
     pohonAwal: pohonAwal,

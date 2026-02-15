@@ -1,85 +1,54 @@
 import 'package:flutter/material.dart';
 import 'package:kebun_sawit/mvc_dao/dao_assignment.dart';
-import 'package:kebun_sawit/mvc_dao/dao_reposisi.dart';
+import 'package:kebun_sawit/mvc_dao/dao_observasi_tambahan.dart';
 import 'package:kebun_sawit/mvc_models/assignment.dart';
-import 'package:kebun_sawit/mvc_models/reposisi.dart';
+import 'package:kebun_sawit/mvc_models/observasi_tambahan.dart';
 
-class ReposisiDrilldownScreen extends StatefulWidget {
-  const ReposisiDrilldownScreen({super.key});
+class ObservasiDrilldownScreen extends StatefulWidget {
+  const ObservasiDrilldownScreen({super.key});
 
   @override
-  State<ReposisiDrilldownScreen> createState() => _ReposisiDrilldownScreenState();
+  State<ObservasiDrilldownScreen> createState() => _ObservasiDrilldownScreenState();
 }
 
-class _ReposisiDetailItem {
+class _ObservasiItem {
   final String estate;
   final String divisi;
   final String blok;
   final String baris;
-  final String npokok;
-  final String perubahanTeks;
-  final String keterangan;
+  final String pohon;
+  final String kategori;
+  final String detail;
+  final String catatan;
+  final String petugas;
   final String createdAt;
 
-  const _ReposisiDetailItem({
+  const _ObservasiItem({
     required this.estate,
     required this.divisi,
     required this.blok,
     required this.baris,
-    required this.npokok,
-    required this.perubahanTeks,
-    required this.keterangan,
+    required this.pohon,
+    required this.kategori,
+    required this.detail,
+    required this.catatan,
+    required this.petugas,
     required this.createdAt,
   });
 }
 
-class _ReposisiDrilldownScreenState extends State<ReposisiDrilldownScreen> {
-  late Future<List<_ReposisiDetailItem>> _future;
+class _ObservasiDrilldownScreenState extends State<ObservasiDrilldownScreen> {
+  late Future<List<_ObservasiItem>> _future;
   final TextEditingController _searchController = TextEditingController();
   final int _pageSize = 10;
   int _currentPage = 1;
-  List<_ReposisiDetailItem> _allData = [];
-  List<_ReposisiDetailItem> _filteredData = [];
+  List<_ObservasiItem> _allData = [];
+  List<_ObservasiItem> _filteredData = [];
 
   @override
   void initState() {
     super.initState();
     _future = _loadData();
-  }
-
-  Future<List<_ReposisiDetailItem>> _loadData() async {
-    final reposisi = await ReposisiDao().getAllZeroReposisi();
-    final assignments = await AssignmentDao().getAllAssignment();
-
-    Assignment? findAssignment(Reposisi r) {
-      for (final a in assignments) {
-        if (a.block == r.blok && a.rowNumber == r.barisAwal) {
-          return a;
-        }
-      }
-      for (final a in assignments) {
-        if (a.block == r.blok) return a;
-      }
-      return null;
-    }
-
-    return reposisi.map((r) {
-      final a = findAssignment(r);
-      final estate = (a?.estate.isNotEmpty ?? false) ? a!.estate : '-';
-      final divisi = (a?.division.isNotEmpty ?? false) ? a!.division : '-';
-      final perubahanTeks =
-          'Pohon ${r.pohonAwal} baris ${r.barisAwal} dipetakan ke pohon ${r.pohonTujuan} baris ${r.barisTujuan}';
-      return _ReposisiDetailItem(
-        estate: estate,
-        divisi: divisi,
-        blok: r.blok,
-        baris: r.barisAwal,
-        npokok: r.pohonAwal,
-        perubahanTeks: perubahanTeks,
-        keterangan: r.keterangan,
-        createdAt: r.createdAt,
-      );
-    }).toList();
   }
 
   @override
@@ -88,20 +57,55 @@ class _ReposisiDrilldownScreenState extends State<ReposisiDrilldownScreen> {
     super.dispose();
   }
 
+  Future<List<_ObservasiItem>> _loadData() async {
+    final observasi = await ObservasiTambahanDao().getAllZeroObservasi();
+    final assignments = await AssignmentDao().getAllAssignment();
+
+    Assignment? findAssignment(ObservasiTambahan o) {
+      for (final a in assignments) {
+        if (a.block == o.blok && a.rowNumber == o.baris) {
+          return a;
+        }
+      }
+      for (final a in assignments) {
+        if (a.block == o.blok) return a;
+      }
+      return null;
+    }
+
+    return observasi.map((o) {
+      final a = findAssignment(o);
+      return _ObservasiItem(
+        estate: (a?.estate.isNotEmpty ?? false) ? a!.estate : '-',
+        divisi: (a?.division.isNotEmpty ?? false) ? a!.division : '-',
+        blok: o.blok,
+        baris: o.baris,
+        pohon: o.pohon,
+        kategori: o.kategori,
+        detail: o.detail,
+        catatan: o.catatan,
+        petugas: o.petugas,
+        createdAt: o.createdAt,
+      );
+    }).toList();
+  }
+
   void _applySearch(String query) {
     final q = query.trim().toLowerCase();
     setState(() {
       if (q.isEmpty) {
-        _filteredData = List<_ReposisiDetailItem>.from(_allData);
+        _filteredData = List<_ObservasiItem>.from(_allData);
       } else {
         _filteredData = _allData.where((item) {
           return item.estate.toLowerCase().contains(q) ||
               item.divisi.toLowerCase().contains(q) ||
               item.blok.toLowerCase().contains(q) ||
               item.baris.toLowerCase().contains(q) ||
-              item.npokok.toLowerCase().contains(q) ||
-              item.keterangan.toLowerCase().contains(q) ||
-              item.perubahanTeks.toLowerCase().contains(q);
+              item.pohon.toLowerCase().contains(q) ||
+              item.kategori.toLowerCase().contains(q) ||
+              item.detail.toLowerCase().contains(q) ||
+              item.catatan.toLowerCase().contains(q) ||
+              item.petugas.toLowerCase().contains(q);
         }).toList();
       }
       _currentPage = 1;
@@ -113,7 +117,7 @@ class _ReposisiDrilldownScreenState extends State<ReposisiDrilldownScreen> {
     return (_filteredData.length / _pageSize).ceil();
   }
 
-  List<_ReposisiDetailItem> get _pagedItems {
+  List<_ObservasiItem> get _pagedItems {
     if (_filteredData.isEmpty) return const [];
     final safePage = _currentPage.clamp(1, _totalPages);
     final start = (safePage - 1) * _pageSize;
@@ -141,7 +145,7 @@ class _ReposisiDrilldownScreenState extends State<ReposisiDrilldownScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FB),
       appBar: AppBar(
-        title: const Text('Drilldown Reposisi'),
+        title: const Text('Drilldown Observasi'),
         foregroundColor: Colors.white,
         elevation: 0,
         flexibleSpace: Container(
@@ -149,12 +153,12 @@ class _ReposisiDrilldownScreenState extends State<ReposisiDrilldownScreen> {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF8E6A8F), Color(0xFFA884A9)],
+              colors: [Color(0xFFB06E3D), Color(0xFFC58A5F)],
             ),
           ),
         ),
       ),
-      body: FutureBuilder<List<_ReposisiDetailItem>>(
+      body: FutureBuilder<List<_ObservasiItem>>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -164,14 +168,14 @@ class _ReposisiDrilldownScreenState extends State<ReposisiDrilldownScreen> {
             return Center(child: Text('Terjadi error: ${snapshot.error}'));
           }
 
-          _allData = snapshot.data ?? const <_ReposisiDetailItem>[];
+          _allData = snapshot.data ?? const <_ObservasiItem>[];
           if (_filteredData.isEmpty && _searchController.text.isEmpty) {
-            _filteredData = List<_ReposisiDetailItem>.from(_allData);
+            _filteredData = List<_ObservasiItem>.from(_allData);
           }
 
           if (_allData.isEmpty) {
             return const Center(
-              child: Text('Belum ada data reposisi pending untuk ditampilkan.'),
+              child: Text('Belum ada data observasi pending untuk ditampilkan.'),
             );
           }
 
@@ -190,7 +194,7 @@ class _ReposisiDrilldownScreenState extends State<ReposisiDrilldownScreen> {
                   controller: _searchController,
                   onChanged: _applySearch,
                   decoration: InputDecoration(
-                    hintText: 'Cari estate/divisi/blok/baris/npokok/detail...',
+                    hintText: 'Cari lokasi/kategori/detail/catatan/petugas...',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
@@ -215,62 +219,71 @@ class _ReposisiDrilldownScreenState extends State<ReposisiDrilldownScreen> {
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final item = pageItems[index];
-                    return Card(
-                      elevation: 1.5,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFFE1EBE7)),
-                        ),
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF8E6A8F).withValues(alpha: 0.10),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: const Text(
-                                    'REPOSISI',
-                                    style: TextStyle(
-                                      color: Color(0xFF7A587A),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFE1EBE7)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFB06E3D).withValues(alpha: 0.10),
+                                  borderRadius: BorderRadius.circular(999),
                                 ),
-                                const Spacer(),
-                                Text(
-                                  _formatTimestamp(item.createdAt),
+                                child: Text(
+                                  item.kategori,
                                   style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF6A8D84),
-                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF9A5F33),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Estate ${item.estate} • Divisi ${item.divisi} • Blok ${item.blok}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF225A4D),
                               ),
+                              const Spacer(),
+                              Text(
+                                _formatTimestamp(item.createdAt),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF6A8D84),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Estate ${item.estate} • Divisi ${item.divisi} • Blok ${item.blok}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF225A4D),
                             ),
-                            const SizedBox(height: 6),
-                            Text('Baris: ${item.baris} • Npokok: ${item.npokok}'),
-                            const SizedBox(height: 4),
-                            Text('Perubahan: ${item.perubahanTeks}'),
-                            const SizedBox(height: 4),
-                            Text('Detail: ${item.keterangan}'),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text('Baris: ${item.baris} • Pohon: ${item.pohon}'),
+                          const SizedBox(height: 4),
+                          Text('Detail: ${item.detail}'),
+                          const SizedBox(height: 4),
+                          Text('Catatan: ${item.catatan.isEmpty ? '-' : item.catatan}'),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Petugas: ${item.petugas}',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ],
                       ),
                     );
                   },

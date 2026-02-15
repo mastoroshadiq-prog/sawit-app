@@ -41,12 +41,6 @@ class _AssignmentListScreen extends State<AssignmentListScreen> {
       _petugas = await _petugasDao.getPetugas();
       _assignments = await _assignmentDao.getAllAssignment();
       if (mounted) setState(() {});
-
-      await _sopSyncService.pullFromServerSafe(
-        spkNumbers: _assignments.map((e) => e.spkNumber).toSet(),
-      );
-
-      await _refreshFromServer(silentWhenFail: true);
     } catch (e) {
       _error = e.toString();
     } finally {

@@ -138,26 +138,33 @@ Widget buildCountSPR(
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: const Color(0xFFC9AFA2)),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.forest_rounded,
-              size: 14,
-              color: Color(0xFF5B3E35),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              strTeks,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 29,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF5B3E35),
-                letterSpacing: 0.2,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.forest_rounded,
+                    size: 14,
+                    color: Color(0xFF5B3E35),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    strTeks,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 29,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF5B3E35),
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     ),
@@ -480,6 +487,7 @@ Widget _buildTreeButton(
         pohon,
         petugas,
         pohonIndex,
+        displayTreeNumber: nomor,
         isVirtual: isVirtual ?? false,
       );
       if (result != null && result.success) {

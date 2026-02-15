@@ -95,22 +95,29 @@ class PohonDao {
     );
   }
 
-  Future<void> updateStatusPohonByObjectId(
+  Future<int> updateStatusPohonByObjectId(
     String objectId,
     String nFlag,
     String nPohonAwal,
     String nBarisAwal,
+    String blok,
   ) async {
     final db = await dbHelper.database;
-    await db.update(
+    return await db.update(
       'pohon',
       {
         'nflag': nFlag,
         'npohon': nPohonAwal,
         'nbaris': nBarisAwal,
       },
-      where: 'objectId = ?',
-      whereArgs: [objectId],
+      where:
+          'TRIM(UPPER(objectId)) = TRIM(UPPER(?)) '
+          'OR ('
+          'TRIM(UPPER(blok)) = TRIM(UPPER(?)) '
+          'AND CAST(TRIM(nbaris) AS INTEGER) = CAST(? AS INTEGER) '
+          'AND CAST(TRIM(npohon) AS INTEGER) = CAST(? AS INTEGER)'
+          ')',
+      whereArgs: [objectId, blok, nBarisAwal, nPohonAwal],
     );
   }
 
