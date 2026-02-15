@@ -107,6 +107,19 @@ class TaskExecutionDao {
     return null;
   }
 
+  Future<TaskExecution?> getLatestBySpk(String spkNumber) async {
+    final db = await dbHelper.database;
+    final res = await db.query(
+      'eksekusi',
+      where: 'spkNumber = ?',
+      whereArgs: [spkNumber],
+      orderBy: 'taskDate DESC',
+      limit: 1,
+    );
+    if (res.isNotEmpty) return TaskExecution.fromMap(res.first);
+    return null;
+  }
+
   Future<int> updateAssignment(TaskExecution taskExecution) async {
     final db = await dbHelper.database;
     return await db.update(

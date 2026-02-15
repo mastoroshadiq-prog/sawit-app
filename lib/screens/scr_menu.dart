@@ -462,81 +462,6 @@ class _MenuScreen extends State<MenuScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [const Color(0xFFF1F7F5), Colors.white],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFD6E7E2)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Image.asset(
-                        'assets/icons/palm.png',
-                        width: 22,
-                        height: 22,
-                        fit: BoxFit.contain,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Akses Cepat',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF225A4D),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Pilih fitur untuk sinkronisasi, laporan, dan operasional lapangan.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: const Color(0xFF4D7A6E),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Versi aplikasi: $_appVersionLabel',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF6A8D84),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: OutlinedButton.icon(
-                      onPressed: _isSwitchingBlock ? null : _openSwitchBlockDialog,
-                      icon: _isSwitchingBlock
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.swap_horiz_rounded, size: 18),
-                      label: const Text('Pindah Blok Dinamis'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF225A4D),
-                        side: BorderSide(color: const Color(0xFF225A4D).withValues(alpha: 0.35)),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
             FutureBuilder<_FieldSummary>(
               future: _summaryFuture,
               builder: (context, snapshot) {
@@ -702,6 +627,69 @@ class _MenuScreen extends State<MenuScreen> {
                   ),
                 );
               },
+            ),
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF1F7F5), Colors.white],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFD6E7E2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_rounded, color: Color(0xFF1F6A5A), size: 18),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Konteks aktif: $_activeDivisi / $_activeBlok',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF225A4D),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        'v$_appVersionLabel',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF6A8D84),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _isSwitchingBlock ? null : _openSwitchBlockDialog,
+                      icon: _isSwitchingBlock
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.swap_horiz_rounded, size: 18),
+                      label: Text(_isSwitchingBlock ? 'Memproses perpindahan blok...' : 'Pindah Blok Dinamis'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF225A4D),
+                        side: BorderSide(color: const Color(0xFF225A4D).withValues(alpha: 0.35)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             Card(
               elevation: 2,

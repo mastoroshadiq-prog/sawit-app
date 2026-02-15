@@ -20,6 +20,7 @@ import 'package:kebun_sawit/screens/sync_download_screen.dart';
 import 'plantdb/db_helper.dart';
 import 'screens/scr_assignment_content.dart';
 import 'screens/scr_assignment_list.dart';
+import 'screens/scr_task_execution_detail.dart';
 import 'screens/scr_execution_form.dart';
 import 'screens/scr_initial_sync.dart';
 import 'screens/scr_login.dart';
@@ -83,6 +84,7 @@ class SRPlantation extends StatelessWidget {
           return SyncPage(autoStartSync: autoStartSync);
         },
         '/goDetail': (context) => const AssignmentContent(),
+        '/taskExecutionDetail': (context) => const TaskExecutionDetailScreen(),
         '/isiTugas': (context) => const AssignmentExecutionFormScreen(),
         '/menu': (context) => const MenuScreen(),
         '/optAct': (context) => const OptionActScreen(),

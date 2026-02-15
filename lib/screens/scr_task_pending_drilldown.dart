@@ -3,6 +3,8 @@ import 'package:kebun_sawit/mvc_dao/dao_assignment.dart';
 import 'package:kebun_sawit/mvc_dao/dao_task_execution.dart';
 import 'package:kebun_sawit/mvc_models/assignment.dart';
 import 'package:kebun_sawit/mvc_models/execution.dart';
+import '../mvc_services/photo_crypto_service.dart';
+import 'dart:io';
 
 class TaskPendingDrilldownScreen extends StatefulWidget {
   const TaskPendingDrilldownScreen({super.key, this.showDone = false});
@@ -164,6 +166,62 @@ class _TaskPendingDrilldownScreenState extends State<TaskPendingDrilldownScreen>
     final hh = local.hour.toString().padLeft(2, '0');
     final mm = local.minute.toString().padLeft(2, '0');
     return '$d/$m/$y $hh:$mm';
+  }
+
+  Future<Widget> _buildPhotoWidget(String imagePath) async {
+    if (imagePath.endsWith('.enc')) {
+      final bytes = await PhotoCryptoService().decryptFileToBytes(imagePath);
+      return Image.memory(bytes, fit: BoxFit.contain);
+    }
+
+    final file = File(imagePath);
+    if (!await file.exists()) {
+      throw Exception('File foto tidak ditemukan di perangkat');
+    }
+    return Image.file(file, fit: BoxFit.contain);
+  }
+
+  Future<void> _openPhotoDialog(BuildContext context, String imagePath) async {
+    if (imagePath.trim().isEmpty || imagePath.trim() == '-') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Foto tidak tersedia.')),
+      );
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Foto Hasil Task'),
+        content: SizedBox(
+          width: 360,
+          height: 480,
+          child: FutureBuilder<Widget>(
+            future: _buildPhotoWidget(imagePath),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text('Gagal memuat foto: ${snapshot.error}'),
+                );
+              }
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: snapshot.data ?? const SizedBox.shrink(),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -349,6 +407,18 @@ class _TaskPendingDrilldownScreenState extends State<TaskPendingDrilldownScreen>
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
+                            if (hasPhoto) ...[
+                              const SizedBox(height: 8),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: OutlinedButton.icon(
+                                  onPressed: () =>
+                                      _openPhotoDialog(context, item.imagePath),
+                                  icon: const Icon(Icons.photo_library_rounded, size: 16),
+                                  label: const Text('Buka Foto'),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

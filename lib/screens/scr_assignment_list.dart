@@ -2,7 +2,9 @@
 import 'package:flutter/material.dart';
 import '../mvc_dao/dao_petugas.dart';
 import '../../mvc_dao/dao_assignment.dart';
+import '../../mvc_dao/dao_task_execution.dart';
 import '../../mvc_models/assignment.dart';
+import '../../mvc_models/execution.dart';
 import '../../mvc_models/petugas.dart';
 import '../../mvc_services/api_spk.dart';
 import '../../mvc_services/sop_sync_service.dart';
@@ -18,8 +20,10 @@ class _AssignmentListScreen extends State<AssignmentListScreen> {
   final AssignmentDao _assignmentDao = AssignmentDao();
   final PetugasDao _petugasDao = PetugasDao();
   final SopSyncService _sopSyncService = SopSyncService();
+  final TaskExecutionDao _taskExecutionDao = TaskExecutionDao();
 
   List<Assignment> _assignments = [];
+  final Map<String, TaskExecution> _latestBySpk = {};
   Petugas? _petugas;
   bool _isLoading = true;
   bool _isRefreshing = false;
@@ -40,6 +44,7 @@ class _AssignmentListScreen extends State<AssignmentListScreen> {
     try {
       _petugas = await _petugasDao.getPetugas();
       _assignments = await _assignmentDao.getAllAssignment();
+      await _loadLatestExecutionMap();
       if (mounted) setState(() {});
     } catch (e) {
       _error = e.toString();
@@ -48,6 +53,16 @@ class _AssignmentListScreen extends State<AssignmentListScreen> {
         setState(() {
           _isLoading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _loadLatestExecutionMap() async {
+    _latestBySpk.clear();
+    for (final a in _assignments) {
+      final latest = await _taskExecutionDao.getLatestBySpk(a.spkNumber);
+      if (latest != null) {
+        _latestBySpk[a.spkNumber] = latest;
       }
     }
   }
@@ -120,6 +135,7 @@ class _AssignmentListScreen extends State<AssignmentListScreen> {
       }
 
       _assignments = await _assignmentDao.getAllAssignment();
+      await _loadLatestExecutionMap();
       await _sopSyncService.pullFromServerSafe(
         spkNumbers: _assignments.map((e) => e.spkNumber).toSet(),
       );
@@ -262,6 +278,9 @@ class _AssignmentListScreen extends State<AssignmentListScreen> {
                       ..._assignments.asMap().entries.map((entry) {
                         final index = entry.key;
                         final assignment = entry.value;
+                        final latest = _latestBySpk[assignment.spkNumber];
+                        final taskState = (latest?.taskState ?? '').trim().toUpperCase();
+                        final isDone = taskState == 'SELESAI';
                         return Container(
                           margin: const EdgeInsets.only(bottom: 10),
                           child: Material(
@@ -270,11 +289,22 @@ class _AssignmentListScreen extends State<AssignmentListScreen> {
                             child: InkWell(
                               borderRadius: BorderRadius.circular(14),
                               onTap: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  '/goDetail',
-                                  arguments: assignment,
-                                );
+                                if (isDone && latest != null) {
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/taskExecutionDetail',
+                                    arguments: {
+                                      'assignment': assignment,
+                                      'execution': latest,
+                                    },
+                                  );
+                                } else {
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/goDetail',
+                                    arguments: assignment,
+                                  );
+                                }
                               },
                               child: Container(
                                 padding: const EdgeInsets.all(14),
@@ -333,6 +363,29 @@ class _AssignmentListScreen extends State<AssignmentListScreen> {
                                             assignment.spkNumber,
                                             style: const TextStyle(
                                               color: Color(0xFF1F6A5A),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isDone
+                                                ? const Color(0xFF3C8D7A).withValues(alpha: 0.12)
+                                                : const Color(0xFF4E7FA8).withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(999),
+                                          ),
+                                          child: Text(
+                                            isDone ? 'DONE' : 'PENDING',
+                                            style: TextStyle(
+                                              color: isDone
+                                                  ? const Color(0xFF2D7D6B)
+                                                  : const Color(0xFF3E6B93),
                                               fontSize: 11,
                                               fontWeight: FontWeight.w700,
                                             ),
