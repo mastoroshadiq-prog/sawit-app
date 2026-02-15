@@ -1,11 +1,20 @@
 // screens/assignment_detail_screen.dart
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
 import '../../mvc_models/assignment.dart';
+import '../../mvc_models/execution.dart';
 import '../../mvc_models/sop_master.dart';
 import '../../mvc_models/sop_step.dart';
 import '../../mvc_models/task_sop_check.dart';
+import '../mvc_dao/dao_audit_log.dart';
 import '../mvc_dao/dao_sop.dart';
+import '../mvc_dao/dao_task_execution.dart';
+import '../mvc_services/geo_photo_service.dart';
+import '../mvc_services/photo_crypto_service.dart';
 
 class AssignmentContent extends StatefulWidget {
   const AssignmentContent({super.key});
@@ -111,12 +120,294 @@ class _AssignmentContentState extends State<AssignmentContent> {
       return;
     }
 
-    Navigator.pushNamed(
-      context,
-      '/isiTugas',
-      arguments: {'assignment': assignment, 'taskState': 'SELESAI'},
+    _openTaskActionBottomSheet(context, assignment, 'SELESAI');
+  }
+
+  void _onDeferPressed(BuildContext context, Assignment assignment) {
+    _openTaskActionBottomSheet(context, assignment, 'TERTUNDA');
+  }
+
+  Future<void> _openTaskActionBottomSheet(
+    BuildContext context,
+    Assignment assignment,
+    String taskState,
+  ) async {
+    String noteValue = '';
+    XFile? photoFile;
+    String? encryptedPhotoPath;
+    bool isSaving = false;
+    final requiresPhoto = taskState == 'SELESAI';
+
+    final result = await showModalBottomSheet<_TaskExecutionSaveResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setModalState) {
+            final canSave = (!requiresPhoto || photoFile != null) && !isSaving;
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+              ),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 44,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD5E3DF),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '$taskState • ${assignment.taskName}',
+                          style: const TextStyle(
+                            color: Color(0xFF225A4D),
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          assignment.fullLocation,
+                          style: const TextStyle(
+                            color: Color(0xFF5E8479),
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Catatan pekerjaan',
+                          style: TextStyle(
+                            color: Color(0xFF225A4D),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        TextField(
+                          minLines: 3,
+                          maxLines: 5,
+                          decoration: InputDecoration(
+                            hintText: 'Tulis catatan hasil pekerjaan...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onChanged: (value) {
+                            noteValue = value;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Foto hasil pekerjaan',
+                                style: TextStyle(
+                                  color: Color(0xFF225A4D),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              requiresPhoto ? 'Wajib' : 'Opsional',
+                              style: TextStyle(
+                                color: requiresPhoto
+                                    ? Colors.redAccent
+                                    : const Color(0xFF5E8479),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: isSaving
+                              ? null
+                              : () async {
+                                  final picker = ImagePicker();
+                                  final shot = await picker.pickImage(
+                                    source: ImageSource.camera,
+                                    imageQuality: 80,
+                                    maxWidth: 1920,
+                                  );
+                                  if (!sheetContext.mounted || shot == null) {
+                                    return;
+                                  }
+                                  try {
+                                    final encrypted = await PhotoCryptoService()
+                                        .encryptFileAtRest(shot.path);
+                                    if (!sheetContext.mounted) return;
+                                    setModalState(() {
+                                      photoFile = shot;
+                                      encryptedPhotoPath = encrypted;
+                                    });
+                                  } catch (_) {
+                                    if (!sheetContext.mounted) return;
+                                    ScaffoldMessenger.of(sheetContext)
+                                        .showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Gagal menyiapkan foto, coba lagi.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                          icon: const Icon(Icons.camera_alt_outlined),
+                          label: const Text('Ambil Foto'),
+                        ),
+                        if (photoFile != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              'Foto siap: ${photoFile!.name}',
+                              style: const TextStyle(
+                                color: Color(0xFF1F6A5A),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2D8A73),
+                              foregroundColor: Colors.white,
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            onPressed: canSave
+                                ? () async {
+                                    setModalState(() => isSaving = true);
+                                    final saveResult = await _persistTaskExecution(
+                                      assignment: assignment,
+                                      taskState: taskState,
+                                      note: noteValue.trim(),
+                                      imagePath:
+                                          encryptedPhotoPath ?? photoFile?.path,
+                                    );
+                                    if (!sheetContext.mounted) return;
+
+                                    if (!saveResult.success) {
+                                      setModalState(() => isSaving = false);
+                                      ScaffoldMessenger.of(sheetContext)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Gagal menyimpan status task.',
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    if (photoFile != null) {
+                                      unawaited(
+                                        GeoPhotoService().captureAndQueuePhoto(
+                                          userId: assignment.petugas,
+                                          blok: assignment.block,
+                                          idTanaman: assignment.id,
+                                          idReposisi: saveResult.executionId,
+                                          actionLabel: 'TASK_$taskState',
+                                          rowNumber: assignment.rowNumber,
+                                          treeNumber: assignment.treeNumber,
+                                          localPath: encryptedPhotoPath ??
+                                              photoFile!.path,
+                                        ),
+                                      );
+                                    }
+
+                                    Navigator.pop(sheetContext, saveResult);
+                                  }
+                                : null,
+                            icon: Icon(
+                              isSaving
+                                  ? Icons.hourglass_top_rounded
+                                  : Icons.save_alt_rounded,
+                            ),
+                            label: Text(
+                              isSaving
+                                  ? 'Menyimpan...'
+                                  : 'Simpan Status $taskState',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (!context.mounted || result == null || !result.success) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Status $taskState berhasil disimpan')),
     );
   }
+
+  Future<_TaskExecutionSaveResult> _persistTaskExecution({
+    required Assignment assignment,
+    required String taskState,
+    required String note,
+    String? imagePath,
+  }) async {
+    final executionId = const Uuid().v4().toUpperCase();
+    final taskExec = TaskExecution(
+      id: executionId,
+      spkNumber: assignment.spkNumber,
+      taskName: assignment.taskName,
+      petugas: assignment.petugas,
+      taskDate: DateTime.now().toIso8601String(),
+      taskState: taskState,
+      keterangan: note,
+      imagePath: imagePath ?? '-',
+      flag: 0,
+    );
+
+    final hasil = await TaskExecutionDao().insertTaskExec(taskExec);
+    if (hasil > 0) {
+      await AuditLogDao().createLog(
+        'INSERT_TASK',
+        'Status $taskState berhasil disimpan',
+      );
+      return _TaskExecutionSaveResult(success: true, executionId: executionId);
+    }
+
+    await AuditLogDao().createLog(
+      'INSERT_TASK',
+      'Status $taskState gagal disimpan',
+    );
+    return const _TaskExecutionSaveResult(success: false, executionId: '');
+  }
+
   @override
   Widget build(BuildContext context) {
     final assignment = ModalRoute.of(context)!.settings.arguments as Assignment;
@@ -547,11 +838,7 @@ class _AssignmentContentState extends State<AssignmentContent> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: () => Navigator.pushNamed(
-                context,
-                '/isiTugas',
-                arguments: {'assignment': assignment, 'taskState': 'TERTUNDA'},
-              ),
+              onPressed: () => _onDeferPressed(context, assignment),
               icon: const Icon(Icons.pause_circle_outline_rounded),
               label: const Text(
                 'TUNDA TASK',
@@ -563,4 +850,14 @@ class _AssignmentContentState extends State<AssignmentContent> {
       ),
     );
   }
+}
+
+class _TaskExecutionSaveResult {
+  final bool success;
+  final String executionId;
+
+  const _TaskExecutionSaveResult({
+    required this.success,
+    required this.executionId,
+  });
 }

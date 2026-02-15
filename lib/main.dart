@@ -12,6 +12,8 @@ import 'package:kebun_sawit/mvc_dao/dao_sop.dart';
 import 'package:kebun_sawit/mvc_dao/dao_task_execution.dart';
 import 'package:kebun_sawit/mvc_libs/active_block_store.dart';
 import 'package:kebun_sawit/mvc_libs/connection_utils.dart';
+import 'package:kebun_sawit/mvc_services/geo_audit_service.dart';
+import 'package:kebun_sawit/mvc_services/geo_photo_service.dart';
 import 'package:kebun_sawit/screens/scr_menu.dart';
 import 'package:kebun_sawit/screens/scr_option_acts.dart';
 import 'package:kebun_sawit/screens/sync_download_screen.dart';
@@ -173,6 +175,10 @@ class _GlobalConnectivitySyncNotifierState extends State<GlobalConnectivitySyncN
 
   Future<void> _handleInternetRestored() async {
     if (_dialogOpen) return;
+
+    unawaited(GeoAuditService().flushPending());
+    unawaited(GeoPhotoService().flushPending());
+
     if (widget.routeObserver.currentRoute == '/syncPage') return;
 
     final hasPending = await _hasPendingSyncData();
